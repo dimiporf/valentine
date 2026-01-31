@@ -32,6 +32,7 @@
 
   window.addEventListener('mousemove', setBgTargetFromEvent, { passive: true });
   window.addEventListener('touchmove', setBgTargetFromEvent, { passive: true });
+
   window.addEventListener('deviceorientation', function (ev) {
     if (typeof ev.gamma === 'number' && typeof ev.beta === 'number') {
       mx = clamp(ev.gamma / 20, -1, 1);
@@ -46,12 +47,7 @@
   // -------------------------
   let noBtn = null;
   let yesBtn = null;
-  let buttonsBar = null;
-
-  function getSafeAreaBottomPx() {
-    // env() δεν διαβάζεται εύκολα από JS. Κάνουμε best-effort.
-    return 0;
-  }
+  let lastMoveTs = 0;
 
   function positionNoRandom() {
     if (!noBtn) return;
@@ -64,46 +60,40 @@
     const vw = window.innerWidth;
     const vh = window.innerHeight;
 
-    // Απόφυγε να πέσει ΠΑΝΩ στο bottom bar αν θες:
-    const barRect = buttonsBar ? buttonsBar.getBoundingClientRect() : null;
-    const barTop = barRect ? barRect.top : vh;
-
     const maxX = Math.max(pad, vw - bw - pad);
-    const maxY = Math.max(pad, barTop - bh - pad); // ⬅️ μένει πάνω από το bar
+    const maxY = Math.max(pad, vh - bh - pad);
 
     const x = rand(pad, maxX);
     const y = rand(pad, maxY);
 
     noBtn.style.left = `${x}px`;
     noBtn.style.top = `${y}px`;
+
+    lastMoveTs = Date.now();
   }
 
-  function makeNoFloating() {
+  function ensureNoStartsNearYes() {
     if (!noBtn) return;
-    noBtn.classList.add('is-floating');
 
-    // ξεκίνα κοντά στο YES (δεξιά)
+    // Spawn near YES initially (then runs away)
     if (yesBtn) {
       const r = yesBtn.getBoundingClientRect();
-      const startX = clamp(r.right - (noBtn.offsetWidth || 90), 10, window.innerWidth - 120);
-      const startY = clamp(r.top - 8, 10, window.innerHeight - 120);
-      noBtn.style.left = `${startX}px`;
-      noBtn.style.top = `${startY}px`;
+      const x = clamp(r.right + 14, 10, window.innerWidth - 120);
+      const y = clamp(r.top, 10, window.innerHeight - 80);
+      noBtn.style.left = `${x}px`;
+      noBtn.style.top = `${y}px`;
     } else {
-      noBtn.style.left = `60vw`;
-      noBtn.style.top = `70vh`;
+      noBtn.style.left = `65%`;
+      noBtn.style.top = `70%`;
     }
   }
 
   function setupNoButton() {
-    noBtn = document.getElementById('noBtn');
-    yesBtn = document.querySelector('.btn-yes');
-    buttonsBar = document.getElementById('btnArena');
-
+    noBtn = document.getElementById('noBtn');     // matches Razor
+    yesBtn = document.querySelector('.btn-yes');  // YES button
     if (!noBtn) return;
 
-    // Βασικό: το NO να μπορεί να φύγει από το bar
-    makeNoFloating();
+    ensureNoStartsNearYes();
 
     const dodge = (ev) => {
       ev.preventDefault();
@@ -113,10 +103,25 @@
       return false;
     };
 
+    // Make it dodge BEFORE Blazor click registers
     noBtn.addEventListener('pointerdown', dodge, { passive: false });
     noBtn.addEventListener('touchstart', dodge, { passive: false });
 
-    // Αν το ποντίκι/δάχτυλο πλησιάσει, φεύγει
+    // If a click still happens, ignore it when it immediately follows movement
+    noBtn.addEventListener('click', (ev) => {
+      if (Date.now() - lastMoveTs < 350) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        return false;
+      }
+      // If it truly got clicked, still run away
+      ev.preventDefault();
+      ev.stopPropagation();
+      positionNoRandom();
+      return false;
+    }, { passive: false });
+
+    // Desktop: run away if pointer comes close
     document.addEventListener('pointermove', (e) => {
       if (!noBtn) return;
       const r = noBtn.getBoundingClientRect();
@@ -234,27 +239,12 @@
     else running = false;
   }
 
-  // -------------------------
-  // YES behavior: hide UI, full-screen gif
-  // -------------------------
-  function hideButtonsBar() {
-    const bar = document.getElementById('btnArena');
-    if (bar) bar.style.display = 'none';
-  }
-
-  function forceMemeFullscreen() {
-    const meme = document.querySelector('.meme');
-    if (meme) meme.classList.add('show');
-  }
-
+  // Called from Razor: JS.InvokeVoidAsync("startCelebration")
   window.startCelebration = function () {
-    // 1) Κρύψε τα κουμπιά αμέσως
-    hideButtonsBar();
+    // Hide the whole bottom card so GIF can take over fullscreen
+    const card = document.querySelector('.card.bottom');
+    if (card) card.style.display = 'none';
 
-    // 2) Fullscreen gif overlay
-    forceMemeFullscreen();
-
-    // 3) FX
     if (!fxCanvas) setupFxCanvas();
     if (!fxCanvas) return;
 
@@ -280,7 +270,7 @@
     }, 520);
   };
 
-  // Blazor calls this on first render
+  // Called from Razor first render: JS.InvokeVoidAsync("valentineSetup")
   window.valentineSetup = function () {
     setupNoButton();
     setupFxCanvas();
