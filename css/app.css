@@ -1,177 +1,153 @@
-:root {
+:root{
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
 }
 
-html, body {
-  height: 100%;
-  margin: 0;
+html,body{height:100%;margin:0}
+body{
+  overflow:hidden;
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+  background:#000;
+  -webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;
 }
 
-body {
-  overflow: hidden;
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  background: #000;
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
+.stage{position:fixed;inset:0;overflow:hidden;z-index:0}
+
+/* background */
+.bg{
+  position:absolute;
+  inset:-30px;
+  background-image:url("../img/bg.jpg");
+  background-size:cover;
+  background-position:center;
+  background-repeat:no-repeat;
+  filter:brightness(.7) saturate(1.05);
+  transform:translate3d(0,0,0) scale(1.06);
+  will-change:transform;
+  z-index:0;
 }
 
-/* Stage is the full-screen container */
-.stage {
-  position: fixed;
-  inset: 0;
-  overflow: hidden;
-  z-index: 0;
+/* overlay */
+.stage::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:1;
+  pointer-events:none;
+  background:radial-gradient(ellipse at center, rgba(0,0,0,.18), rgba(0,0,0,.55));
 }
 
-/* Background photo */
-.bg {
-  position: absolute;
-  inset: -30px;
-  background-image: url("../img/bg.jpg");
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  filter: brightness(0.7) saturate(1.05);
-  transform: translate3d(0,0,0) scale(1.06);
-  will-change: transform;
-  z-index: 0;
+/* ----- UI LAYOUT (no transitions) ----- */
+
+/* Το card το κάνουμε "container" που πιάνει όλη την οθόνη,
+   αλλά τα κουμπιά θα είναι fixed κάτω σαν bottom bar */
+.card.bottom{
+  position:fixed;
+  inset:0;
+  z-index:5;
+  pointer-events:none; /* να μην πιάνει clicks εκτός από όσα θα ξανα-ενεργοποιήσουμε */
 }
 
-/* Overlay ABOVE bg but BELOW UI */
-.stage::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  pointer-events: none;
-  background: radial-gradient(ellipse at center, rgba(0,0,0,0.18), rgba(0,0,0,0.55));
+/* Panel: δεν θέλουμε να μας μετακινεί τίποτα.
+   Θα κρύβεται όταν γίνει YES. */
+.panel{
+  position:absolute;
+  inset:0;
+  pointer-events:none; /* ενεργοποιούμε επιλεκτικά buttons */
+  color:rgba(255,255,255,.95);
 }
 
-/* Bottom card */
-.card.bottom {
-  position: fixed;
-  left: 0;
-  right: 0;
-
-  /* ✅ ΤΕΡΜΑ ΚΑΤΩ: πατάει στο safe-area (όχι +12px που το σηκώνει) */
-  bottom: 0;
-
-  /* ✅ safe-area padding μέσα στο container */
-  padding-left: calc(16px + var(--safe-left));
-  padding-right: calc(16px + var(--safe-right));
-  padding-bottom: calc(14px + var(--safe-bottom));
-  padding-top: 14px;
-
-  z-index: 5;
+/* Κρατάμε title/subtitle/message "να υπάρχουν" αλλά δεν μας νοιάζει να φαίνονται.
+   Αν θες, μπορείς να τα κρύψεις εντελώς: */
+.panel h1,
+.panel .subtitle,
+.panel .message{
+  display:none;
 }
 
-/* The translucent panel */
-.panel {
-  max-width: 520px;
-  margin: 0 auto;
-  padding: 16px 16px 18px;
-  border-radius: 18px;
-  background: rgba(20, 20, 24, 0.62);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  box-shadow: 0 18px 40px rgba(0,0,0,0.35);
-  color: rgba(255,255,255,0.95);
-  position: relative;
-  z-index: 6;
+/* Buttons bar κολλημένο κάτω */
+.buttons{
+  position:fixed;
+  left:0;
+  right:0;
+  bottom:0;
+  padding-left:calc(16px + var(--safe-left));
+  padding-right:calc(16px + var(--safe-right));
+  padding-bottom:calc(14px + var(--safe-bottom));
+  padding-top:12px;
+
+  display:flex;
+  gap:12px;
+  align-items:center;
+
+  z-index:7;
+  pointer-events:auto; /* να πατιούνται */
 }
 
-h1 {
-  margin: 0 0 8px 0;
-  font-size: 28px;
-  line-height: 1.15;
-  letter-spacing: -0.3px;
+/* Buttons styles */
+.btn{
+  appearance:none;
+  border:none;
+  border-radius:999px;
+  padding:14px 18px;
+  font-size:16px;
+  font-weight:800;
+  letter-spacing:.4px;
+  color:#111;
+  background:#fff;
+  box-shadow:0 10px 22px rgba(0,0,0,.25);
+  cursor:pointer;
+  user-select:none;
 }
 
-.subtitle {
-  font-size: 14px;
-  opacity: 0.85;
-  margin-bottom: 14px;
+.btn-yes{flex:1 1 auto}
+
+.no-wrap{display:contents}
+
+.btn-no{
+  background:#ff4d6d;
+  color:#fff;
 }
 
-.buttons {
-  position: relative;
-  display: flex;
-  gap: 12px;
-  align-items: center;
+/* Το NO θα γίνεται fixed και θα φεύγει random */
+.btn-no.is-floating{
+  position:fixed;
+  z-index:9999;
 }
 
-/* Buttons */
-.btn {
-  appearance: none;
-  border: none;
-  border-radius: 999px;
-  padding: 14px 18px;
-  font-size: 16px;
-  font-weight: 800;
-  letter-spacing: 0.4px;
-  color: #111;
-  background: #fff;
-  box-shadow: 0 10px 22px rgba(0,0,0,0.25);
-  cursor: pointer;
-  user-select: none;
+/* Meme: full-screen overlay, αρχικά κρυφό */
+.meme{
+  position:fixed;
+  inset:0;
+  z-index:9998;
+  display:none;        /* ⬅️ χωρίς transitions */
+  pointer-events:none; /* δεν θέλουμε clicks πάνω του */
+  margin:0;
+  padding:0;
 }
 
-.btn:active {
-  transform: translateY(1px);
+.meme.show{
+  display:block;
 }
 
-.btn-yes {
-  flex: 1 1 auto;
+.meme img{
+  width:100vw;
+  height:100vh;
+  object-fit:cover;
+  display:block;
+  border-radius:0;
+  box-shadow:none;
 }
 
-.no-wrap {
-  display: contents; /* wrapper won't affect positioning */
-}
-
-.btn-no {
-  background: #ff4d6d;
-  color: #fff;
-}
-
-/* Message */
-.message {
-  margin-top: 10px;
-  min-height: 20px;
-  font-size: 15px;
-  font-weight: 700;
-  opacity: 0.95;
-}
-
-/* Meme / gif */
-.meme {
-  margin-top: 10px;
-  opacity: 0;
-  transform: translateY(8px) scale(0.98);
-  transition: opacity 250ms ease, transform 250ms ease;
-  pointer-events: none;
-}
-
-.meme.show {
-  opacity: 1;
-  transform: translateY(0) scale(1);
-}
-
-.meme img {
-  width: min(360px, 78vw);
-  border-radius: 14px;
-  display: block;
-  box-shadow: 0 14px 30px rgba(0,0,0,0.35);
-}
-
-/* FX canvas on top */
-.fx-canvas {
-  position: fixed;
-  inset: 0;
-  width: 100vw;
-  height: 100vh;
-  pointer-events: none;
-  z-index: 10;
+/* FX canvas πάνω απ’ όλα */
+.fx-canvas{
+  position:fixed;
+  inset:0;
+  width:100vw;
+  height:100vh;
+  pointer-events:none;
+  z-index:10000;
 }
