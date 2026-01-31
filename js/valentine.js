@@ -1,15 +1,16 @@
 (function () {
-  // ---------- Helpers ----------
+  // ---------------------------
+  // Background gentle movement
+  // ---------------------------
   function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
 
-  // ---------- Background parallax ----------
   let bgEl = null;
   let mx = 0, my = 0; // -1..1
   let vx = 0, vy = 0;
   let bgBound = false;
 
   function setBgTargetFromEvent(ev) {
-    const t = (ev.touches && ev.touches.length) ? ev.touches[0] : ev;
+    const t = ev.touches && ev.touches.length ? ev.touches[0] : ev;
     const x = t.clientX / window.innerWidth;
     const y = t.clientY / window.innerHeight;
     mx = (x - 0.5) * 2;
@@ -17,11 +18,11 @@
   }
 
   function animateBg() {
-    if (!bgEl) bgEl = document.querySelector(".bg");
+    if (!bgEl) bgEl = document.querySelector('.bg');
     if (bgEl) {
       vx += (mx - vx) * 0.04;
       vy += (my - vy) * 0.04;
-      const tx = vx * 14;
+      const tx = vx * 14; // px
       const ty = vy * 14;
       bgEl.style.transform = `translate3d(${tx}px, ${ty}px, 0) scale(1.06)`;
     }
@@ -32,11 +33,11 @@
     if (bgBound) return;
     bgBound = true;
 
-    window.addEventListener("mousemove", setBgTargetFromEvent, { passive: true });
-    window.addEventListener("touchmove", setBgTargetFromEvent, { passive: true });
+    window.addEventListener('mousemove', setBgTargetFromEvent, { passive: true });
+    window.addEventListener('touchmove', setBgTargetFromEvent, { passive: true });
 
-    window.addEventListener("deviceorientation", function (ev) {
-      if (typeof ev.gamma === "number" && typeof ev.beta === "number") {
+    window.addEventListener('deviceorientation', function (ev) {
+      if (typeof ev.gamma === 'number' && typeof ev.beta === 'number') {
         mx = clamp(ev.gamma / 20, -1, 1);
         my = clamp(ev.beta / 35, -1, 1);
       }
@@ -45,93 +46,66 @@
     requestAnimationFrame(animateBg);
   }
 
-  // ---------- Meme observer (hide bottom panel when meme shows) ----------
-  let memeObserver = null;
+  // ---------------------------
+  // Meme visibility -> body class
+  // (so we can hide the bottom panel reliably without :has)
+  // ---------------------------
+  let observerSet = false;
 
   function syncMemeState() {
-    const meme = document.querySelector(".meme");
-    const isShow = meme && meme.classList.contains("show");
-    document.body.classList.toggle("meme-on", !!isShow);
+    const meme = document.querySelector('.meme');
+    const isOpen = !!(meme && meme.classList.contains('show'));
+    document.body.classList.toggle('meme-open', isOpen);
   }
 
-  function observeMeme() {
-    if (memeObserver) return;
+  function watchMemeOnce() {
+    if (observerSet) return;
+    observerSet = true;
 
-    const target = document.body;
-    if (!target) return;
+    // Try to find meme now; if not, retry (Blazor timing)
+    let tries = 0;
+    const timer = setInterval(() => {
+      tries++;
 
-    memeObserver = new MutationObserver(() => {
-      // Any DOM/class change -> re-check
-      syncMemeState();
-    });
+      const meme = document.querySelector('.meme');
+      if (meme) {
+        clearInterval(timer);
 
-    memeObserver.observe(target, {
-      subtree: true,
-      attributes: true,
-      attributeFilter: ["class"]
-    });
+        // Initial sync
+        syncMemeState();
 
-    // initial
-    syncMemeState();
+        // Observe class changes (when Razor toggles show)
+        const mo = new MutationObserver(syncMemeState);
+        mo.observe(meme, { attributes: true, attributeFilter: ['class'] });
+
+        // If user taps the overlay, close it (optional but nice)
+        meme.addEventListener('click', () => {
+          meme.classList.remove('show');
+          syncMemeState();
+        });
+      }
+
+      if (tries > 40) clearInterval(timer); // stop after ~4s
+    }, 100);
   }
 
-  // ---------- FX Canvas (optional, but LIGHT) ----------
-  // Αν θες ΤΕΛΕΙΩΣ χωρίς fireworks, άφησε το startCelebration() κενό.
-  // Εδώ το κρατάω ultra-light (ένα “flash” στο canvas) για να μη κολλάει.
-  let fxCanvas, fxCtx;
+  // ---------------------------
+  // Public functions called by Blazor
+  // ---------------------------
 
-  function setupFxCanvas() {
-    fxCanvas = document.getElementById("fx");
-    if (!fxCanvas) return;
-    fxCtx = fxCanvas.getContext("2d");
-    resizeFx();
-    window.addEventListener("resize", resizeFx, { passive: true });
-  }
-
-  function resizeFx() {
-    if (!fxCanvas) return;
-    fxCanvas.width = Math.floor(window.innerWidth * devicePixelRatio);
-    fxCanvas.height = Math.floor(window.innerHeight * devicePixelRatio);
-  }
-
-  function flashFx() {
-    if (!fxCanvas || !fxCtx) return;
-    const w = fxCanvas.width, h = fxCanvas.height;
-    fxCtx.clearRect(0, 0, w, h);
-    fxCtx.globalAlpha = 0.18;
-    fxCtx.fillStyle = "white";
-    fxCtx.fillRect(0, 0, w, h);
-    fxCtx.globalAlpha = 1;
-
-    // clear quickly
-    setTimeout(() => {
-      if (!fxCtx) return;
-      fxCtx.clearRect(0, 0, w, h);
-    }, 120);
-  }
-
-  // Called by Blazor ONLY on YES (στο Razor σου ήδη το κάνεις)
-  window.startCelebration = function () {
-    // ensure canvas exists (but keep it light)
-    if (!fxCanvas) setupFxCanvas();
-    flashFx();
-
-    // ensure meme state applied (hide bottom panel)
-    syncMemeState();
-  };
-
-  // Blazor calls this on first render
+  // Called from OnAfterRenderAsync(firstRender)
   window.valentineSetup = function () {
     bindBgOnce();
-    setupFxCanvas();
-    observeMeme();
-
-    // Ensure NO is default: do NOT bind any dodge handlers.
-    // (Το @onclick="OnNo" θα δείχνει μόνο το μήνυμα, όπως θες.)
+    watchMemeOnce();
+    // IMPORTANT: no NO-button hijacking here (default behavior)
   };
 
-  // Safety fallback
-  document.addEventListener("DOMContentLoaded", () => {
-    if (window.valentineSetup) window.valentineSetup();
-  });
+  // Called from OnYes() in Razor
+  // We keep it super light (no fireworks) to avoid any “κολλάει/πεθαίνει”
+  window.startCelebration = function () {
+    // no-op by design
+    // The Razor already sets _showMeme=true which adds class "show" to .meme
+    // Our observer will hide the bottom panel and keep GIF centered.
+    syncMemeState();
+  };
 })();
