@@ -15,7 +15,7 @@ body{
   touch-action: manipulation;
 }
 
-/* ---------- Stage / Background ---------- */
+/* ---------- Stage ---------- */
 .stage{
   position: fixed;
   inset: 0;
@@ -36,7 +36,7 @@ body{
   z-index: 0;
 }
 
-/* overlay for readability */
+/* dark overlay for readability */
 .stage::after{
   content:"";
   position:absolute;
@@ -46,7 +46,7 @@ body{
   z-index: 1;
 }
 
-/* ---------- Bottom card (always bottom) ---------- */
+/* ---------- Bottom panel (ALWAYS visible) ---------- */
 .card.bottom{
   position: fixed;
   left: 0;
@@ -54,7 +54,7 @@ body{
   bottom: calc(10px + var(--safe-bottom));
   padding-left: calc(14px + var(--safe-left));
   padding-right: calc(14px + var(--safe-right));
-  z-index: 10;
+  z-index: 10; /* πάνω από bg + overlay */
 }
 
 .panel{
@@ -117,7 +117,7 @@ h1{
   min-width: 86px;
 }
 
-/* message */
+/* Message */
 .message{
   margin-top: 10px;
   min-height: 20px;
@@ -126,31 +126,19 @@ h1{
   opacity: 0.95;
 }
 
-/* ---------- FX canvas ---------- */
-.fx-canvas{
-  position: fixed;
-  inset: 0;
-  width: 100vw;
-  height: 100vh;
-  pointer-events: none;
-  z-index: 30; /* κάτω από gif overlay */
-}
-
-/* ---------- GIF overlay from Razor (.meme.show) ---------- */
-/* default: hidden */
+/* ---------- GIF overlay (from your Razor .meme) ---------- */
+/* default hidden */
 .meme{ display:none; }
 
-/* When _showMeme=true => class "show" */
+/* shown on YES (_showMeme => class "show") */
 .meme.show{
   display: grid;
   position: fixed;
   inset: 0;
   z-index: 9999;
-
   justify-items: center;
   align-content: start;
 
-  /* Θέλεις ~30px κάτω από πάνω άκρη */
   padding-top: calc(30px + var(--safe-top));
   padding-left: calc(16px + var(--safe-left));
   padding-right: calc(16px + var(--safe-right));
@@ -160,18 +148,20 @@ h1{
 }
 
 .meme.show img{
-  /* “30% μικρότερο από όλη την οθόνη” => 70% του viewport */
-  width: 70vw;
+  width: 70vw;     /* ~30% smaller than viewport */
   height: 70vh;
   object-fit: contain;
-
   border-radius: 18px;
   display:block;
   box-shadow: 0 18px 45px rgba(0,0,0,0.45);
 }
 
-/* ---------- YES mode: hide bottom UI completely ---------- */
-/* Το JS θα βάζει body.yes-mode ΜΟΝΟ στο YES */
-body.yes-mode .card.bottom{
-  display:none !important;
+/* FX canvas */
+.fx-canvas{
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 50; /* κάτω από meme (9999), πάνω από UI */
 }
