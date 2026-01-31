@@ -22,7 +22,7 @@
     if (bgEl) {
       vx += (mx - vx) * 0.04;
       vy += (my - vy) * 0.04;
-      const tx = vx * 14; // px
+      const tx = vx * 14;
       const ty = vy * 14;
       bgEl.style.transform = `translate3d(${tx}px, ${ty}px, 0) scale(1.06)`;
     }
@@ -47,81 +47,50 @@
   }
 
   // ---------------------------
-  // Meme visibility -> body class
-  // (so we can hide the bottom panel reliably without :has)
+  // GIF overlay (outside Blazor)
   // ---------------------------
-  let observerSet = false;
+  function showGifOverlay() {
+    const overlay = document.getElementById('gifOverlay');
+    if (!overlay) return;
 
-  function syncMemeState() {
-    const meme = document.querySelector('.meme');
-    const isOpen = !!(meme && meme.classList.contains('show'));
-    document.body.classList.toggle('meme-open', isOpen);
+    overlay.classList.add('show');
+
+    // hide bottom card while overlay is open (no :has needed)
+    document.body.classList.add('gif-open');
   }
 
-  function watchMemeOnce() {
-    if (observerSet) return;
-    observerSet = true;
+  function hideGifOverlay() {
+    const overlay = document.getElementById('gifOverlay');
+    if (!overlay) return;
 
-    // Try to find meme now; if not, retry (Blazor timing)
-    let tries = 0;
-    const timer = setInterval(() => {
-      tries++;
+    overlay.classList.remove('show');
+    document.body.classList.remove('gif-open');
+  }
 
-      const meme = document.querySelector('.meme');
-      if (meme) {
-        clearInterval(timer);
+  function bindOverlayCloseOnce() {
+    const overlay = document.getElementById('gifOverlay');
+    if (!overlay) return;
 
-        // Initial sync
-        syncMemeState();
+    if (overlay.dataset.bound === '1') return;
+    overlay.dataset.bound = '1';
 
-        // Observe class changes (when Razor toggles show)
-        const mo = new MutationObserver(syncMemeState);
-        mo.observe(meme, { attributes: true, attributeFilter: ['class'] });
-
-        // If user taps the overlay, close it (optional but nice)
-        meme.addEventListener('click', () => {
-          meme.classList.remove('show');
-          syncMemeState();
-        });
-      }
-
-      if (tries > 40) clearInterval(timer); // stop after ~4s
-    }, 100);
+    // tap anywhere to close
+    overlay.addEventListener('click', hideGifOverlay);
+    overlay.addEventListener('touchstart', hideGifOverlay, { passive: true });
   }
 
   // ---------------------------
   // Public functions called by Blazor
   // ---------------------------
-
-  // Called from OnAfterRenderAsync(firstRender)
   window.valentineSetup = function () {
     bindBgOnce();
-    watchMemeOnce();
-    // IMPORTANT: no NO-button hijacking here (default behavior)
+    bindOverlayCloseOnce();
+    // IMPORTANT: no NO-button hijacking -> default behavior
   };
 
-  // Called from OnYes() in Razor
-  // We keep it super light (no fireworks) to avoid any “κολλάει/πεθαίνει”
+  // Called only from OnYes() in Razor
   window.startCelebration = function () {
-    // no-op by design
-    // The Razor already sets _showMeme=true which adds class "show" to .meme
-    // Our observer will hide the bottom panel and keep GIF centered.
-    syncMemeState();
+    showGifOverlay();
   };
 
-(function () {
-
-  window.valentineSetup = function () {
-    // τίποτα εδώ
-  };
-
-  // ΚΑΛΕΙΤΑΙ ΑΠΟ OnYes() ΣΤΟ RAZOR
-  window.startCelebration = function () {
-    const overlay = document.getElementById("gifOverlay");
-    if (overlay) {
-      overlay.classList.add("show");
-    }
-  };
-
-})();
 })();
