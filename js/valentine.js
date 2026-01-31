@@ -7,8 +7,8 @@
   // Background gentle movement
   // -------------------------
   let bgEl = null;
-  let mx = 0, my = 0;   // target -1..1
-  let vx = 0, vy = 0;   // smoothed
+  let mx = 0, my = 0;
+  let vx = 0, vy = 0;
 
   function setBgTargetFromEvent(ev) {
     const t = (ev.touches && ev.touches.length) ? ev.touches[0] : ev;
@@ -23,9 +23,7 @@
     if (bgEl) {
       vx += (mx - vx) * 0.04;
       vy += (my - vy) * 0.04;
-      const tx = vx * 14;
-      const ty = vy * 14;
-      bgEl.style.transform = `translate3d(${tx}px, ${ty}px, 0) scale(1.06)`;
+      bgEl.style.transform = `translate3d(${vx * 14}px, ${vy * 14}px, 0) scale(1.06)`;
     }
     requestAnimationFrame(animateBg);
   }
@@ -47,29 +45,37 @@
   // -------------------------
   let noBtn = null;
   let isNoFloating = false;
-  let lastMoveTs = 0;
+
+  // click shield (για να μη γίνει accidental click στο YES)
+  let blockClicksUntil = 0;
+  function blockNextClicks(ms) {
+    blockClicksUntil = Date.now() + ms;
+  }
+  function clickShieldCapture(e) {
+    if (Date.now() < blockClicksUntil) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }
+  document.addEventListener('click', clickShieldCapture, true);
+  document.addEventListener('pointerup', clickShieldCapture, true);
+  document.addEventListener('touchend', clickShieldCapture, true);
 
   function ensureNoCanMove() {
     if (!noBtn) return;
-
-    // ΜΟΝΟ όταν αρχίσει να “δραπετεύει”, το κάνουμε fixed
     if (!isNoFloating) {
       isNoFloating = true;
-
-      // κρατάμε την οπτική θέση που έχει τώρα πριν το κάνουμε fixed
       const r = noBtn.getBoundingClientRect();
-
       noBtn.style.position = 'fixed';
       noBtn.style.left = `${r.left}px`;
       noBtn.style.top = `${r.top}px`;
-      noBtn.style.zIndex = '40'; // πάνω από panel
+      noBtn.style.zIndex = '40';
       noBtn.style.margin = '0';
     }
   }
 
   function positionNoRandom() {
     if (!noBtn) return;
-
     ensureNoCanMove();
 
     const pad = 12;
@@ -83,61 +89,41 @@
     const maxX = Math.max(pad, vw - bw - pad);
     const maxY = Math.max(pad, vh - bh - pad);
 
-    const x = rand(pad, maxX);
-    const y = rand(pad, maxY);
-
-    noBtn.style.left = `${x}px`;
-    noBtn.style.top = `${y}px`;
+    noBtn.style.left = `${rand(pad, maxX)}px`;
+    noBtn.style.top = `${rand(pad, maxY)}px`;
     noBtn.style.transform = 'translate(0,0)';
 
-    lastMoveTs = Date.now();
+    // για ~450ms μπλοκάρουμε clicks ώστε να μη πέσει click στο YES από κάτω
+    blockNextClicks(450);
+
+    if (navigator.vibrate) navigator.vibrate(18);
   }
 
   function setupNoButton() {
     noBtn = document.getElementById('noBtn');
     if (!noBtn) return;
 
-    // Mobile: dodge on pointerdown/touchstart so it never really clicks
+    // Στο mobile: dodge στο pointerdown/touchstart
+    // ΚΑΙ μπλοκάρουμε click με capture shield, ώστε να μη “φύγει” click στο YES.
     const dodge = (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
       positionNoRandom();
-      if (navigator.vibrate) navigator.vibrate(18);
       return false;
     };
 
     noBtn.addEventListener('pointerdown', dodge, { passive: false });
     noBtn.addEventListener('touchstart', dodge, { passive: false });
 
-    // Αν πατήσει click (σπάνιο), πάλι να φύγει
-    noBtn.addEventListener('click', (ev) => {
-      // ignore “ghost click” right after a move
-      if (Date.now() - lastMoveTs < 350) {
-        ev.preventDefault();
-        ev.stopPropagation();
-        return;
-      }
-      ev.preventDefault();
-      ev.stopPropagation();
-      positionNoRandom();
-    }, { passive: false });
-
-    // Desktop fun: if pointer gets close, run away
+    // Desktop: αφού γίνει floating, τρέχει κι όταν πλησιάζει ο κέρσορας
     document.addEventListener('pointermove', (e) => {
-      if (!noBtn) return;
-
-      // αν δεν έχει γίνει floating ακόμα, μην κάνει τρέλες
-      // (αλλά μπορείς να το αλλάξεις σε true αν θες να ξεκινά αμέσως)
-      if (!isNoFloating) return;
-
+      if (!noBtn || !isNoFloating) return;
       const r = noBtn.getBoundingClientRect();
       const cx = r.left + r.width / 2;
       const cy = r.top + r.height / 2;
       const dx = e.clientX - cx;
       const dy = e.clientY - cy;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-
-      if (dist < 100) positionNoRandom();
+      if (Math.sqrt(dx * dx + dy * dy) < 110) positionNoRandom();
     }, { passive: true });
 
     window.addEventListener('resize', () => {
@@ -255,27 +241,16 @@
     const cx = window.innerWidth * 0.5;
     const cy = window.innerHeight * 0.42;
 
-    for (let k = 0; k < 7; k++) {
-      addBurst(rand(cx * 0.35, cx * 1.65), rand(cy * 0.65, cy * 1.25), 28, 700, 900, 'square');
-    }
-    for (let k = 0; k < 6; k++) {
-      addBurst(rand(cx * 0.3, cx * 1.7), rand(cy * 0.4, cy * 1.2), 18, 520, 600, 'heart');
-    }
+    for (let k = 0; k < 7; k++) addBurst(rand(cx * 0.35, cx * 1.65), rand(cy * 0.65, cy * 1.25), 28, 700, 900, 'square');
+    for (let k = 0; k < 6; k++) addBurst(rand(cx * 0.3, cx * 1.7), rand(cy * 0.4, cy * 1.2), 18, 520, 600, 'heart');
 
     running = true;
     lastT = performance.now();
     requestAnimationFrame(tick);
-
-    setTimeout(() => {
-      for (let k = 0; k < 4; k++) {
-        addBurst(rand(cx * 0.4, cx * 1.6), rand(cy * 0.55, cy * 1.15), 22, 650, 900, 'square');
-      }
-      if (!running) { running = true; lastT = performance.now(); requestAnimationFrame(tick); }
-    }, 520);
   };
 
   // -------------------------
-  // Detect YES mode (Blazor shows .meme.show)
+  // YES mode observer (όταν το Blazor βάλει class "show" στο meme)
   // -------------------------
   function setupYesModeObserver() {
     const meme = document.querySelector('.meme');
@@ -287,8 +262,7 @@
     };
 
     apply();
-
-    const obs = new MutationObserver(() => apply());
+    const obs = new MutationObserver(apply);
     obs.observe(meme, { attributes: true, attributeFilter: ['class'] });
   }
 
