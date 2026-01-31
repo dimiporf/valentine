@@ -20,6 +20,7 @@ body {
   position: fixed;
   inset: 0;
   overflow: hidden;
+  z-index: 0;
 }
 
 .bg {
@@ -52,13 +53,13 @@ body {
   bottom: calc(10px + var(--safe-bottom));
   padding-left: calc(14px + var(--safe-left));
   padding-right: calc(14px + var(--safe-right));
-  z-index: 5;
+  z-index: 10;
 }
 
 .panel {
   max-width: 560px;
   margin: 0 auto;
-  padding: 14px 14px 14px;
+  padding: 14px;
   border-radius: 18px;
   background: rgba(20, 20, 24, 0.62);
   backdrop-filter: blur(10px);
@@ -124,79 +125,20 @@ h1 {
   opacity: 0.95;
 }
 
-/* ---------- GIF overlay: centered, ~30px from top, ~30% smaller ---------- */
+/* ---------- Meme overlay ---------- */
 .meme { display: none; }
 
+/* Όταν γίνει show από Blazor */
 .meme.show {
   display: grid;
   position: fixed;
   inset: 0;
-  z-index: 30;
+  z-index: 9999;
 
-  /* οριζόντια κέντρο */
-  justify-items: center;
-
-  /* 30px από πάνω + safe area */
-  align-content: start;
-  padding-top: calc(30px + var(--safe-top));
-
-  /* λίγο padding γύρω γύρω */
-  padding-left: calc(16px + var(--safe-left));
-  padding-right: calc(16px + var(--safe-right));
-  padding-bottom: calc(16px + var(--safe-bottom));
-
-  background: rgba(0,0,0,0.55);
-}
-
-.meme.show img {
-  /* ~30% μικρότερο από το viewport */
-  width: 70vw;
-  height: 70vh;
-
-  /* να κρατάει αναλογία και να μη “τεντώνει” */
-  object-fit: contain;
-
-  border-radius: 18px;
-  display: block;
-  box-shadow: 0 18px 45px rgba(0,0,0,0.45);
-}
-
-
-/* FX canvas */
-.fx-canvas {
-  position: fixed;
-  inset: 0;
-  width: 100vw;
-  height: 100vh;
-  pointer-events: none;
-  z-index: 25; /* κάτω από meme */
-}
-
-/* ---------- Ensure correct stacking ---------- */
-.stage { position: fixed; inset: 0; z-index: 0; }
-.bg { position: absolute; inset: -30px; z-index: 0; }
-.stage::after { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
-
-/* bottom card always above bg */
-.card.bottom { position: fixed; left: 0; right: 0; bottom: calc(12px + var(--safe-bottom)); z-index: 10; }
-
-/* ---------- When GIF is shown: hide the whole bottom card ---------- */
-/* This works because .meme is inside .panel which is inside .card.bottom */
-.card.bottom:has(.meme.show) {
-  display: none !important;
-}
-
-/* ---------- GIF overlay (always on top) ---------- */
-.meme { display: none; }
-
-.meme.show {
-  display: grid;
-  position: fixed;
-  inset: 0;
-  z-index: 9999;                /* πάνω από ΟΛΑ */
   justify-items: center;
   align-content: start;
 
+  /* 30px κάτω από την πάνω άκρη + safe area */
   padding-top: calc(30px + var(--safe-top));
   padding-left: calc(16px + var(--safe-left));
   padding-right: calc(16px + var(--safe-right));
@@ -215,3 +157,17 @@ h1 {
   box-shadow: 0 18px 45px rgba(0,0,0,0.45);
 }
 
+/* ---------- YES mode: hide the bottom UI completely ---------- */
+body.yes-mode .card.bottom {
+  display: none !important;
+}
+
+/* FX canvas */
+.fx-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 50; /* κάτω από meme (9999) */
+}
