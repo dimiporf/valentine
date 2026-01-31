@@ -1,5 +1,4 @@
 (function () {
-  // Helpers
   function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
   function rand(min, max) { return Math.random() * (max - min) + min; }
 
@@ -7,8 +6,8 @@
   // Background gentle movement
   // -------------------------
   let bgEl = null;
-  let mx = 0, my = 0;   // target -1..1
-  let vx = 0, vy = 0;   // smoothed
+  let mx = 0, my = 0;
+  let vx = 0, vy = 0;
 
   function setBgTargetFromEvent(ev) {
     const t = (ev.touches && ev.touches.length) ? ev.touches[0] : ev;
@@ -23,9 +22,7 @@
     if (bgEl) {
       vx += (mx - vx) * 0.04;
       vy += (my - vy) * 0.04;
-      const tx = vx * 14;
-      const ty = vy * 14;
-      bgEl.style.transform = `translate3d(${tx}px, ${ty}px, 0) scale(1.06)`;
+      bgEl.style.transform = `translate3d(${vx * 14}px, ${vy * 14}px, 0) scale(1.06)`;
     }
     requestAnimationFrame(animateBg);
   }
@@ -147,6 +144,9 @@
 
   // Called from Blazor on YES
   window.startCelebration = function () {
+    // Hide bottom UI
+    document.body.classList.add("yes-mode");
+
     if (!fxCanvas) setupFxCanvas();
     if (!fxCanvas) return;
 
@@ -168,6 +168,6 @@
   // Called from Blazor on first render
   window.valentineSetup = function () {
     setupFxCanvas();
-    // (No NO-button logic here — default behavior)
+    // Default behavior for NO (only shows message from Blazor)
   };
 })();
