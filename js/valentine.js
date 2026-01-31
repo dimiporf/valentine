@@ -46,81 +46,89 @@
   // NO button evasive behavior
   // -------------------------
   let noBtn = null;
-  let noIsFloating = false;
+  let isNoFloating = false;
+  let lastMoveTs = 0;
 
-  function getViewportBounds() {
-    return {
-      w: window.innerWidth,
-      h: window.innerHeight
-    };
-  }
-
-  function floatNoAtCurrentSpot() {
-    if (!noBtn || noIsFloating) return;
-
-    const r = noBtn.getBoundingClientRect();
-
-    // Make it fixed but keep it where it already is
-    noBtn.style.position = 'fixed';
-    noBtn.style.left = `${r.left}px`;
-    noBtn.style.top = `${r.top}px`;
-    noBtn.style.margin = '0';
-    noBtn.style.zIndex = '30'; // above panel
-    noIsFloating = true;
-  }
-
-  function moveNoRandom() {
+  function ensureNoCanMove() {
     if (!noBtn) return;
 
-    // Ensure fixed
-    floatNoAtCurrentSpot();
+    // ΜΟΝΟ όταν αρχίσει να “δραπετεύει”, το κάνουμε fixed
+    if (!isNoFloating) {
+      isNoFloating = true;
 
-    const pad = 10;
+      // κρατάμε την οπτική θέση που έχει τώρα πριν το κάνουμε fixed
+      const r = noBtn.getBoundingClientRect();
+
+      noBtn.style.position = 'fixed';
+      noBtn.style.left = `${r.left}px`;
+      noBtn.style.top = `${r.top}px`;
+      noBtn.style.zIndex = '40'; // πάνω από panel
+      noBtn.style.margin = '0';
+    }
+  }
+
+  function positionNoRandom() {
+    if (!noBtn) return;
+
+    ensureNoCanMove();
+
+    const pad = 12;
     const rect = noBtn.getBoundingClientRect();
     const bw = rect.width || 90;
     const bh = rect.height || 44;
 
-    const vp = getViewportBounds();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
 
-    const maxX = Math.max(pad, vp.w - bw - pad);
-    const maxY = Math.max(pad, vp.h - bh - pad);
+    const maxX = Math.max(pad, vw - bw - pad);
+    const maxY = Math.max(pad, vh - bh - pad);
 
     const x = rand(pad, maxX);
     const y = rand(pad, maxY);
 
     noBtn.style.left = `${x}px`;
     noBtn.style.top = `${y}px`;
+    noBtn.style.transform = 'translate(0,0)';
+
+    lastMoveTs = Date.now();
   }
 
   function setupNoButton() {
     noBtn = document.getElementById('noBtn');
     if (!noBtn) return;
 
-    // Reset any previous state (in case of hot reload / rerender)
-    noBtn.style.position = '';
-    noBtn.style.left = '';
-    noBtn.style.top = '';
-    noBtn.style.zIndex = '';
-    noIsFloating = false;
-
+    // Mobile: dodge on pointerdown/touchstart so it never really clicks
     const dodge = (ev) => {
-      // Prevent Blazor click from firing (most of the time)
       ev.preventDefault();
       ev.stopPropagation();
-
-      moveNoRandom();
+      positionNoRandom();
       if (navigator.vibrate) navigator.vibrate(18);
       return false;
     };
 
-    // Mobile: dodge on press
     noBtn.addEventListener('pointerdown', dodge, { passive: false });
     noBtn.addEventListener('touchstart', dodge, { passive: false });
 
-    // Desktop: if mouse gets close, run away
+    // Αν πατήσει click (σπάνιο), πάλι να φύγει
+    noBtn.addEventListener('click', (ev) => {
+      // ignore “ghost click” right after a move
+      if (Date.now() - lastMoveTs < 350) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        return;
+      }
+      ev.preventDefault();
+      ev.stopPropagation();
+      positionNoRandom();
+    }, { passive: false });
+
+    // Desktop fun: if pointer gets close, run away
     document.addEventListener('pointermove', (e) => {
       if (!noBtn) return;
-      if (document.body.classList.contains('accepted')) return;
+
+      // αν δεν έχει γίνει floating ακόμα, μην κάνει τρέλες
+      // (αλλά μπορείς να το αλλάξεις σε true αν θες να ξεκινά αμέσως)
+      if (!isNoFloating) return;
 
       const r = noBtn.getBoundingClientRect();
       const cx = r.left + r.width / 2;
@@ -129,32 +137,12 @@
       const dy = e.clientY - cy;
       const dist = Math.sqrt(dx * dx + dy * dy);
 
-      if (dist < 90) moveNoRandom();
+      if (dist < 100) positionNoRandom();
     }, { passive: true });
 
     window.addEventListener('resize', () => {
-      if (!noBtn) return;
-      if (document.body.classList.contains('accepted')) return;
-      if (noIsFloating) moveNoRandom();
+      if (isNoFloating) positionNoRandom();
     }, { passive: true });
-  }
-
-  // -------------------------
-  // Detect YES (via DOM change) and switch to fullscreen gif mode
-  // -------------------------
-  function setupAcceptedWatcher() {
-    const meme = document.querySelector('.meme');
-    if (!meme) return;
-
-    const apply = () => {
-      const isShown = meme.classList.contains('show');
-      if (isShown) document.body.classList.add('accepted');
-    };
-
-    apply();
-
-    const obs = new MutationObserver(() => apply());
-    obs.observe(meme, { attributes: true, attributeFilter: ['class'] });
   }
 
   // -------------------------
@@ -240,6 +228,7 @@
       p.rot += p.vr * dt;
 
       p.alpha = clamp(p.life / 1.0, 0, 1);
+
       const c = palette[i % palette.length];
       fxCtx.fillStyle = `rgba(${c[0]},${c[1]},${c[2]},${p.alpha})`;
 
@@ -285,10 +274,28 @@
     }, 520);
   };
 
+  // -------------------------
+  // Detect YES mode (Blazor shows .meme.show)
+  // -------------------------
+  function setupYesModeObserver() {
+    const meme = document.querySelector('.meme');
+    if (!meme) return;
+
+    const apply = () => {
+      const isYes = meme.classList.contains('show');
+      document.body.classList.toggle('yes-mode', isYes);
+    };
+
+    apply();
+
+    const obs = new MutationObserver(() => apply());
+    obs.observe(meme, { attributes: true, attributeFilter: ['class'] });
+  }
+
   // Blazor calls this on first render
   window.valentineSetup = function () {
     setupNoButton();
     setupFxCanvas();
-    setupAcceptedWatcher();
+    setupYesModeObserver();
   };
 })();
