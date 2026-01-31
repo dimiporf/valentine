@@ -1,44 +1,34 @@
 (function () {
-  // ---------------------------
   // Helpers
-  // ---------------------------
   function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
   function rand(min, max) { return Math.random() * (max - min) + min; }
 
-  // ---------------------------
-  // Elements (provided by Blazor markup)
-  // ---------------------------
+  // Elements from Razor
   let bgEl = null;
-  let yesBtn = null;
   let noBtn = null;
 
-  // Overlays we can inject from JS (toast + meme)
-  let toastEl = null;
-  let memeWrap = null;
-
-  // Background target (-1..1)
+  // Parallax state
   let mx = 0, my = 0;
   let vx = 0, vy = 0;
 
   // NO movement state
   let hasMovedOnce = false;
   let lastMoveTs = 0;
+  let noBound = false;
+  let bgBound = false;
 
   // FX canvas
   let fxCanvas, fxCtx, fxW, fxH;
   let particles = [];
   let running = false;
   let lastT = 0;
+  let fxReady = false;
 
-  // Prevent double-binding
-  let noBound = false;
-  let yesBound = false;
-
-  // ---------------------------
+  // -------------------------
   // Background parallax
-  // ---------------------------
+  // -------------------------
   function setBgTargetFromEvent(ev) {
-    const t = ev.touches && ev.touches.length ? ev.touches[0] : ev;
+    const t = (ev.touches && ev.touches.length) ? ev.touches[0] : ev;
     const x = t.clientX / window.innerWidth;
     const y = t.clientY / window.innerHeight;
     mx = (x - 0.5) * 2;
@@ -50,19 +40,18 @@
     if (bgEl) {
       vx += (mx - vx) * 0.04;
       vy += (my - vy) * 0.04;
-      const tx = vx * 14; // px
-      const ty = vy * 14;
-      bgEl.style.transform = `translate3d(${tx}px, ${ty}px, 0) scale(1.06)`;
+      bgEl.style.transform = `translate3d(${vx * 14}px, ${vy * 14}px, 0) scale(1.06)`;
     }
     requestAnimationFrame(animateBg);
   }
 
-  function bindBgInputsOnce() {
-    // Passive listeners, safe on mobile
+  function bindBgOnce() {
+    if (bgBound) return;
+    bgBound = true;
+
     window.addEventListener("mousemove", setBgTargetFromEvent, { passive: true });
     window.addEventListener("touchmove", setBgTargetFromEvent, { passive: true });
 
-    // Optional tilt
     window.addEventListener("deviceorientation", function (ev) {
       if (typeof ev.gamma === "number" && typeof ev.beta === "number") {
         mx = clamp(ev.gamma / 20, -1, 1);
@@ -73,58 +62,14 @@
     requestAnimationFrame(animateBg);
   }
 
-  // ---------------------------
-  // Toast + Meme overlay (injected)
-  // ---------------------------
-  function ensureOverlays() {
-    toastEl = document.querySelector(".toast");
-    if (!toastEl) {
-      toastEl = document.createElement("div");
-      toastEl.className = "toast";
-      toastEl.textContent = "Nice try 😅";
-      document.body.appendChild(toastEl);
-    }
-
-    memeWrap = document.querySelector(".meme-wrap");
-    if (!memeWrap) {
-      memeWrap = document.createElement("div");
-      memeWrap.className = "meme-wrap";
-      memeWrap.innerHTML = `
-        <div class="meme-card">
-          <img src="img/daft-love.gif" alt="meme" />
-        </div>
-      `;
-      document.body.appendChild(memeWrap);
-
-      // Tap anywhere to close
-      memeWrap.addEventListener("click", () => memeWrap.classList.remove("show"));
-      memeWrap.addEventListener("touchstart", () => memeWrap.classList.remove("show"), { passive: true });
-    }
-  }
-
-  function showToast(text) {
-    ensureOverlays();
-    toastEl.textContent = text || "Nice try 😅";
-    toastEl.classList.add("show");
-    setTimeout(() => toastEl.classList.remove("show"), 900);
-  }
-
-  function showMeme() {
-    ensureOverlays();
-    memeWrap.classList.add("show");
-  }
-
-  // ---------------------------
-  // NO button random positioning
-  // ---------------------------
+  // -------------------------
+  // NO button random positioning (default behavior)
+  // -------------------------
   function positionNoRandom() {
     if (!noBtn) return;
 
     const pad = 12;
-
-    // Button size
     const b = noBtn.getBoundingClientRect();
-
     const vw = window.innerWidth;
     const vh = window.innerHeight;
 
@@ -134,22 +79,23 @@
     const x = rand(pad, maxX);
     const y = rand(pad, maxY);
 
+    // IMPORTANT: keep it visible (fixed within viewport)
+    noBtn.style.position = "fixed";
     noBtn.style.left = `${x}px`;
     noBtn.style.top = `${y}px`;
-    noBtn.style.transform = "translate(0, 0)";
+    noBtn.style.transform = "translate(0,0)";
 
     hasMovedOnce = true;
     lastMoveTs = Date.now();
   }
 
-  function bindNoButtonOnce() {
+  function bindNoOnce() {
     if (!noBtn || noBound) return;
     noBound = true;
 
     const dodge = (ev) => {
       // Move instantly on tap attempt
       positionNoRandom();
-
       if (navigator.vibrate) navigator.vibrate(18);
 
       ev.preventDefault();
@@ -157,24 +103,25 @@
       return false;
     };
 
-    // Mobile-first: these two are the most important
+    // Mobile-first
     noBtn.addEventListener("pointerdown", dodge, { passive: false });
     noBtn.addEventListener("touchstart", dodge, { passive: false });
 
-    // Fallback: if click fires anyway, still move (but avoid immediate double-trigger)
+    // If click fires anyway, still move (avoid double-trigger)
     noBtn.addEventListener("click", (ev) => {
       if (Date.now() - lastMoveTs < 350) {
         ev.preventDefault();
         ev.stopPropagation();
         return;
       }
-      ev.preventDefault();
-      ev.stopPropagation();
+      // still let Blazor set message? -> NO: αν αφήσουμε click, θα τρέξει OnNo.
+      // Θέλεις default "try again" μήνυμα; άρα αφήνουμε Blazor να τρέξει,
+      // αλλά μετακινούμε το κουμπί πριν.
       positionNoRandom();
-      showToast("Try again 😇");
+      // NOTE: δεν κάνουμε preventDefault εδώ για να περάσει το Blazor @onclick.
     });
 
-    // Desktop fun: only after first move
+    // Desktop: only after first move
     noBtn.addEventListener("mouseenter", () => {
       if (hasMovedOnce) positionNoRandom();
     });
@@ -184,28 +131,17 @@
     }, { passive: true });
   }
 
-  // ---------------------------
-  // YES button binding
-  // ---------------------------
-  function bindYesButtonOnce() {
-    if (!yesBtn || yesBound) return;
-    yesBound = true;
-
-    yesBtn.addEventListener("click", () => {
-      window.startCelebration();
-      showMeme();
-    });
-  }
-
-  // ---------------------------
-  // FX Canvas setup + animation
-  // ---------------------------
+  // -------------------------
+  // FX canvas
+  // -------------------------
   function setupFxCanvas() {
+    if (fxReady) return;
     fxCanvas = document.getElementById("fx");
     if (!fxCanvas) return;
     fxCtx = fxCanvas.getContext("2d");
     resizeFx();
     window.addEventListener("resize", resizeFx, { passive: true });
+    fxReady = true;
   }
 
   function resizeFx() {
@@ -295,9 +231,12 @@
     else running = false;
   }
 
-  // Public: called by Blazor (or by YES handler above)
+  // Public: called from Blazor ONLY on YES
   window.startCelebration = function () {
-    if (!fxCanvas) setupFxCanvas();
+    // Hide bottom UI so GIF can be seen cleanly above everything
+    document.body.classList.add("yes-mode");
+
+    setupFxCanvas();
     if (!fxCanvas) return;
 
     const cx = window.innerWidth * 0.5;
@@ -313,48 +252,27 @@
     running = true;
     lastT = performance.now();
     requestAnimationFrame(tick);
-
-    setTimeout(() => {
-      for (let k = 0; k < 4; k++) {
-        addBurst(rand(cx * 0.4, cx * 1.6), rand(cy * 0.55, cy * 1.15), 22, 650, 900, "square");
-      }
-      if (!running) { running = true; lastT = performance.now(); requestAnimationFrame(tick); }
-    }, 520);
   };
 
-  // ---------------------------
-  // Public init: call after Blazor renders
-  // ---------------------------
-  function tryBind(retries) {
-    bgEl = document.querySelector(".bg");
-    yesBtn = document.getElementById("btnYes");
-    noBtn = document.getElementById("btnNo");
-
-    // We can always bind background + overlays + fx
-    ensureOverlays();
+  // Public init called from Blazor after render
+  window.valentineSetup = function () {
+    bindBgOnce();
     setupFxCanvas();
 
-    // bind buttons if present
-    if (noBtn) bindNoButtonOnce();
-    if (yesBtn) bindYesButtonOnce();
+    // IMPORTANT: ids are "noBtn" in your Razor
+    // (NO "btnNo", NO "btnYes")
+    noBtn = document.getElementById("noBtn");
 
-    // If buttons not there yet, retry a few times (Blazor rendering timing)
-    if ((!yesBtn || !noBtn) && retries > 0) {
-      setTimeout(() => tryBind(retries - 1), 120);
-    }
-  }
+    // Bind NO movement
+    bindNoOnce();
 
-  // This is the function you call from Blazor after render
-  window.valentineSetup = function () {
-    bindBgInputsOnce();
-    tryBind(20);
+    // Safety: sometimes Blazor re-renders, try again a few times
+    let tries = 12;
+    const timer = setInterval(() => {
+      noBtn = document.getElementById("noBtn");
+      if (noBtn) bindNoOnce();
+      tries--;
+      if (tries <= 0) clearInterval(timer);
+    }, 150);
   };
-
-  // Fallback: if you forget to call it from Blazor, try anyway
-  document.addEventListener("DOMContentLoaded", () => {
-    // do NOT bind bg multiple times; valentineSetup handles it
-    // but calling it once here is harmless because we guard with flags
-    if (window.valentineSetup) window.valentineSetup();
-  });
-
 })();
