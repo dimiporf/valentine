@@ -187,3 +187,36 @@ body.meme-open .card.bottom{
   pointer-events: none;
   z-index: 20;
 }
+
+.gif-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+}
+
+.gif-overlay.show {
+  display: flex;
+}
+
+.gif-card {
+  text-align: center;
+}
+
+.gif-text {
+  color: white;
+  font-size: 28px;
+  font-weight: 900;
+  margin-bottom: 12px;
+}
+
+.gif-card img {
+  width: 70vw;
+  max-width: 420px;
+  height: auto;
+  border-radius: 16px;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+}
