@@ -151,3 +151,33 @@ body{
   pointer-events:none;
   z-index:10000;
 }
+
+.card.bottom {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+
+  padding-left: calc(16px + var(--safe-left));
+  padding-right: calc(16px + var(--safe-right));
+  padding-bottom: calc(16px + var(--safe-bottom));
+  padding-top: 12px;
+
+  z-index: 5;
+}
+
+.panel {
+  max-width: 520px;
+  margin: 0 auto;
+
+  padding: 16px 16px 18px;
+  border-radius: 18px;
+
+  background: rgba(20, 20, 24, 0.62);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+
+  box-shadow: 0 18px 40px rgba(0,0,0,0.35);
+  color: rgba(255,255,255,0.95);
+}
+
