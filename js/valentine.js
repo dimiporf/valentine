@@ -3,30 +3,14 @@
   function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
   function rand(min, max) { return Math.random() * (max - min) + min; }
 
-  // Elements
+  // -------------------------
+  // Background parallax
+  // -------------------------
   let bgEl = null;
-  let noBtn = null;
-
-  // Parallax
   let mx = 0, my = 0;
   let vx = 0, vy = 0;
   let bgBound = false;
 
-  // NO movement
-  let hasMovedOnce = false;
-  let lastMoveTs = 0;
-  let noBound = false;
-
-  // FX canvas
-  let fxCanvas, fxCtx, fxW, fxH;
-  let particles = [];
-  let running = false;
-  let lastT = 0;
-  let fxReady = false;
-
-  // -------------------------
-  // Background parallax
-  // -------------------------
   function setBgTargetFromEvent(ev) {
     const t = (ev.touches && ev.touches.length) ? ev.touches[0] : ev;
     const x = t.clientX / window.innerWidth;
@@ -63,63 +47,78 @@
   }
 
   // -------------------------
-  // NO button dodge (keep visible, never disappears)
+  // Meme overlay (bulletproof)
   // -------------------------
-  function positionNoRandom() {
-    if (!noBtn) return;
+  let memeOverlay = null;
+  let observerBound = false;
 
-    const pad = 12;
-    const b = noBtn.getBoundingClientRect();
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
+  function ensureMemeOverlay() {
+    memeOverlay = document.getElementById("memeOverlay");
+    if (memeOverlay) return;
 
-    const maxX = Math.max(pad, vw - b.width - pad);
-    const maxY = Math.max(pad, vh - b.height - pad);
+    memeOverlay = document.createElement("div");
+    memeOverlay.id = "memeOverlay";
+    memeOverlay.innerHTML = `<img alt="love gif" />`;
+    document.body.appendChild(memeOverlay);
 
-    const x = rand(pad, maxX);
-    const y = rand(pad, maxY);
-
-    // Important: fixed inside viewport
-    noBtn.style.position = "fixed";
-    noBtn.style.left = `${x}px`;
-    noBtn.style.top = `${y}px`;
-    noBtn.style.transform = "translate(0,0)";
-
-    hasMovedOnce = true;
-    lastMoveTs = Date.now();
-  }
-
-  function bindNoOnce() {
-    if (!noBtn || noBound) return;
-    noBound = true;
-
-    const dodge = (ev) => {
-      // move first so click is hard
-      positionNoRandom();
-      if (navigator.vibrate) navigator.vibrate(18);
-
-      // stop event so Blazor OnNo won't fire most of the time
-      ev.preventDefault();
-      ev.stopPropagation();
-      return false;
+    // click/tap to close
+    const close = () => {
+      memeOverlay.classList.remove("show");
+      document.body.classList.remove("meme-open");
     };
 
-    noBtn.addEventListener("pointerdown", dodge, { passive: false });
-    noBtn.addEventListener("touchstart", dodge, { passive: false });
+    memeOverlay.addEventListener("click", close);
+    memeOverlay.addEventListener("touchstart", close, { passive: true });
+  }
 
-    // Desktop: if mouse enters AFTER it has moved once
-    noBtn.addEventListener("mouseenter", () => {
-      if (hasMovedOnce) positionNoRandom();
+  function openMemeOverlayFromRazor() {
+    // Το Razor έχει ήδη ένα <div class="meme show"><img src="..."></div>
+    // Το “πιάνουμε” και χρησιμοποιούμε το ίδιο src.
+    const razorMemeImg =
+      document.querySelector(".meme.show img") ||
+      document.querySelector(".meme img");
+
+    if (!razorMemeImg) return;
+
+    ensureMemeOverlay();
+    const img = memeOverlay.querySelector("img");
+    img.src = razorMemeImg.getAttribute("src");
+
+    memeOverlay.classList.add("show");
+    document.body.classList.add("meme-open");
+  }
+
+  function bindMemeObserverOnce() {
+    if (observerBound) return;
+    observerBound = true;
+
+    // MutationObserver: όταν το Blazor βάλει class "show" στη .meme, ανοίγουμε overlay.
+    const mo = new MutationObserver(() => {
+      const isShowing = document.querySelector(".meme.show");
+      if (isShowing) openMemeOverlayFromRazor();
     });
 
-    window.addEventListener("resize", () => {
-      if (hasMovedOnce) positionNoRandom();
-    }, { passive: true });
+    mo.observe(document.documentElement, {
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["class"]
+    });
+
+    // Αν είναι ήδη show (σε refresh), άνοιξέ το
+    if (document.querySelector(".meme.show")) {
+      openMemeOverlayFromRazor();
+    }
   }
 
   // -------------------------
-  // FX canvas
+  // FX canvas (ONLY called by Blazor on YES)
   // -------------------------
+  let fxCanvas, fxCtx, fxW, fxH;
+  let particles = [];
+  let running = false;
+  let lastT = 0;
+  let fxReady = false;
+
   function setupFxCanvas() {
     if (fxReady) return;
     fxCanvas = document.getElementById("fx");
@@ -217,7 +216,7 @@
     else running = false;
   }
 
-  // Public: called by Blazor from OnYes (ONLY YES)
+  // Public: called ONLY from your Blazor OnYes
   window.startCelebration = function () {
     setupFxCanvas();
     if (!fxCanvas) return;
@@ -237,22 +236,10 @@
     requestAnimationFrame(tick);
   };
 
-  // Public: called by Blazor after first render
+  // Public init: called by Blazor after render
   window.valentineSetup = function () {
     bindBgOnce();
     setupFxCanvas();
-
-    // Your Razor id is "noBtn"
-    noBtn = document.getElementById("noBtn");
-    bindNoOnce();
-
-    // Retry in case Blazor renders a bit later
-    let tries = 12;
-    const timer = setInterval(() => {
-      noBtn = document.getElementById("noBtn");
-      if (noBtn) bindNoOnce();
-      tries--;
-      if (tries <= 0) clearInterval(timer);
-    }, 150);
+    bindMemeObserverOnce(); // ONLY watches for Razor .meme.show and then overlays it
   };
 })();
