@@ -245,3 +245,83 @@
   };
 
 })();
+
+(function () {
+  const noBtn = document.getElementById("btnNo");
+  if (!noBtn) return;
+
+  // Helps prevent "click" firing after touch
+  let lastMoveTs = 0;
+
+  function clamp(v, min, max) {
+    return Math.max(min, Math.min(max, v));
+  }
+
+  function moveNoRandom() {
+    const now = Date.now();
+    lastMoveTs = now;
+
+    // Button size
+    const rect = noBtn.getBoundingClientRect();
+    const bw = rect.width;
+    const bh = rect.height;
+
+    // Safe area: whole viewport
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    // Random position so the whole button stays visible
+    const padding = 10;
+    const minX = padding;
+    const maxX = vw - bw - padding;
+    const minY = padding;
+    const maxY = vh - bh - padding;
+
+    const x = Math.random() * (maxX - minX) + minX;
+    const y = Math.random() * (maxY - minY) + minY;
+
+    noBtn.style.left = `${clamp(x, minX, maxX)}px`;
+    noBtn.style.top = `${clamp(y, minY, maxY)}px`;
+    noBtn.style.transform = `translate(0, 0)`;
+  }
+
+  // Best for mobile: move on pointerdown/touchstart so it "dodges"
+  noBtn.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    moveNoRandom();
+  }, { passive: false });
+
+  noBtn.addEventListener("touchstart", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    moveNoRandom();
+  }, { passive: false });
+
+  // Fallback: if click happens, still move
+  noBtn.addEventListener("click", (e) => {
+    // Ignore click if it immediately follows our move
+    if (Date.now() - lastMoveTs < 350) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+    moveNoRandom();
+  });
+
+  // Optional: also dodge when finger gets close (fun)
+  document.addEventListener("pointermove", (e) => {
+    const r = noBtn.getBoundingClientRect();
+    const cx = r.left + r.width / 2;
+    const cy = r.top + r.height / 2;
+    const dx = e.clientX - cx;
+    const dy = e.clientY - cy;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    // If finger is within 70px, dodge
+    if (dist < 70) moveNoRandom();
+  });
+})();
+
