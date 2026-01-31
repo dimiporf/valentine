@@ -108,4 +108,20 @@
     // Our observer will hide the bottom panel and keep GIF centered.
     syncMemeState();
   };
+
+(function () {
+
+  window.valentineSetup = function () {
+    // τίποτα εδώ
+  };
+
+  // ΚΑΛΕΙΤΑΙ ΑΠΟ OnYes() ΣΤΟ RAZOR
+  window.startCelebration = function () {
+    const overlay = document.getElementById("gifOverlay");
+    if (overlay) {
+      overlay.classList.add("show");
+    }
+  };
+
+})();
 })();
