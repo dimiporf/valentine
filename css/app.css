@@ -1,175 +1,177 @@
-/* ----- Reset / safe viewport ----- */
-html, body {
-  margin: 0;
-  padding: 0;
-  height: 100%;
-  width: 100%;
+:root{
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
 }
 
-body {
+html, body { height: 100%; margin: 0; padding: 0; }
+
+body{
   overflow: hidden;
-  background: #000;
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  background: #000;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
-/* ----- Full-screen stage ----- */
-.screen {
-  position: relative;
-  width: 100vw;
-  height: 100vh;
-  height: 100svh; /* modern mobile */
+/* ---------- Stage / Background ---------- */
+.stage{
+  position: fixed;
+  inset: 0;
   overflow: hidden;
+  z-index: 0;
 }
 
-/* Background photo layer (smooth parallax transform from JS) */
-.bg {
+.bg{
   position: absolute;
-  inset: -24px;             /* give room for parallax */
+  inset: -30px;
   background-image: url("../img/bg.jpg");
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
+  filter: brightness(0.7) saturate(1.05);
   transform: translate3d(0,0,0) scale(1.06);
   will-change: transform;
-  filter: saturate(1.05) contrast(1.02);
+  z-index: 0;
 }
 
-/* Soft dark overlay for text readability */
-.bg::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle at 50% 70%, rgba(0,0,0,0.15), rgba(0,0,0,0.55));
+/* overlay for readability */
+.stage::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  background: radial-gradient(ellipse at center, rgba(0,0,0,0.15), rgba(0,0,0,0.60));
+  pointer-events:none;
+  z-index: 1;
 }
 
-/* Canvas for fireworks/hearts */
-.fx-canvas {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 20;
-}
-
-/* ----- Content anchored to bottom ----- */
-.content {
-  position: absolute;
+/* ---------- Bottom card (always bottom) ---------- */
+.card.bottom{
+  position: fixed;
   left: 0;
   right: 0;
-  bottom: max(18px, env(safe-area-inset-bottom));
-  padding: 16px 16px 18px;
-  z-index: 30;
+  bottom: calc(10px + var(--safe-bottom));
+  padding-left: calc(14px + var(--safe-left));
+  padding-right: calc(14px + var(--safe-right));
+  z-index: 10;
+}
+
+.panel{
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 14px;
+  border-radius: 18px;
+  background: rgba(20, 20, 24, 0.62);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 18px 40px rgba(0,0,0,0.35);
+  color: rgba(255,255,255,0.95);
+  box-sizing: border-box;
+}
+
+h1{
+  margin: 0 0 8px 0;
+  font-size: 28px;
+  line-height: 1.15;
+  letter-spacing: -0.3px;
+}
+
+.subtitle{
+  font-size: 14px;
+  opacity: 0.85;
+  margin-bottom: 12px;
+}
+
+.buttons{
+  position: relative;
   display: flex;
-  flex-direction: column;
-  align-items: center;
   gap: 12px;
-}
-
-/* Question */
-.question {
-  margin: 0;
-  padding: 10px 14px;
-  text-align: center;
-  font-size: clamp(24px, 5.3vw, 36px);
-  line-height: 1.12;
-  color: #fff;
-  text-shadow: 0 2px 16px rgba(0,0,0,0.55);
-}
-
-/* Buttons row */
-.buttons {
-  display: flex;
-  gap: 14px;
   align-items: center;
-  justify-content: center;
 }
 
-/* Base button */
-.btn {
-  border: 0;
+.btn{
+  appearance: none;
+  border: none;
   border-radius: 999px;
-  padding: 14px 22px;
-  font-size: 18px;
+  padding: 14px 18px;
+  font-size: 16px;
   font-weight: 800;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.4px;
+  color: #111;
+  background: #fff;
+  box-shadow: 0 10px 22px rgba(0,0,0,0.25);
   cursor: pointer;
   user-select: none;
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.35);
 }
 
-/* YES */
-.btn.yes {
-  background: linear-gradient(135deg, #ff3b5c, #ff9ec7);
+.btn:active{ transform: translateY(1px); }
+
+.btn-yes{ flex: 1 1 auto; }
+
+.no-wrap{ display: block; }
+
+.btn-no{
+  background: #ff4d6d;
   color: #fff;
+  min-width: 86px;
 }
 
-/* NO - initially normal, but we will make it movable with position: fixed */
-#btnNo {
-  position: fixed; /* IMPORTANT for moving anywhere */
-  left: 62%;
-  top: 82%;
-  transform: translate(-50%, -50%);
-  z-index: 40;
-  background: rgba(255,255,255,0.92);
-  color: #111;
-}
-
-/* On smaller screens, keep buttons comfortable */
-@media (max-width: 420px) {
-  .btn { padding: 13px 20px; font-size: 17px; }
-}
-
-/* Meme popup (hidden until YES) */
-.meme-wrap {
-  position: absolute;
-  inset: 0;
-  z-index: 60;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  padding: 18px;
-}
-
-.meme-wrap.show {
-  display: flex;
-}
-
-.meme-card {
-  max-width: min(92vw, 520px);
-  border-radius: 18px;
-  overflow: hidden;
-  box-shadow: 0 18px 60px rgba(0,0,0,0.55);
-  background: rgba(0,0,0,0.25);
-  backdrop-filter: blur(6px);
-}
-
-.meme-card img {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-
-/* Small toast */
-.toast {
-  position: absolute;
-  left: 50%;
-  top: 18px;
-  transform: translateX(-50%);
-  z-index: 70;
-  color: #fff;
-  background: rgba(0,0,0,0.55);
-  padding: 10px 14px;
-  border-radius: 999px;
+/* message */
+.message{
+  margin-top: 10px;
+  min-height: 20px;
+  font-size: 15px;
   font-weight: 700;
-  font-size: 14px;
-  opacity: 0;
-  transition: opacity 250ms ease;
-  pointer-events: none;
+  opacity: 0.95;
 }
 
-.toast.show {
-  opacity: 1;
+/* ---------- FX canvas ---------- */
+.fx-canvas{
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 30; /* κάτω από gif overlay */
+}
+
+/* ---------- GIF overlay from Razor (.meme.show) ---------- */
+/* default: hidden */
+.meme{ display:none; }
+
+/* When _showMeme=true => class "show" */
+.meme.show{
+  display: grid;
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+
+  justify-items: center;
+  align-content: start;
+
+  /* Θέλεις ~30px κάτω από πάνω άκρη */
+  padding-top: calc(30px + var(--safe-top));
+  padding-left: calc(16px + var(--safe-left));
+  padding-right: calc(16px + var(--safe-right));
+  padding-bottom: calc(16px + var(--safe-bottom));
+
+  background: rgba(0,0,0,0.55);
+}
+
+.meme.show img{
+  /* “30% μικρότερο από όλη την οθόνη” => 70% του viewport */
+  width: 70vw;
+  height: 70vh;
+  object-fit: contain;
+
+  border-radius: 18px;
+  display:block;
+  box-shadow: 0 18px 45px rgba(0,0,0,0.45);
+}
+
+/* ---------- YES mode: hide bottom UI completely ---------- */
+/* Το JS θα βάζει body.yes-mode ΜΟΝΟ στο YES */
+body.yes-mode .card.bottom{
+  display:none !important;
 }
