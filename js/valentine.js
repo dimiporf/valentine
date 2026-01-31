@@ -3,19 +3,19 @@
   function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
   function rand(min, max) { return Math.random() * (max - min) + min; }
 
-  // Elements from Razor
+  // Elements
   let bgEl = null;
   let noBtn = null;
 
-  // Parallax state
+  // Parallax
   let mx = 0, my = 0;
   let vx = 0, vy = 0;
+  let bgBound = false;
 
-  // NO movement state
+  // NO movement
   let hasMovedOnce = false;
   let lastMoveTs = 0;
   let noBound = false;
-  let bgBound = false;
 
   // FX canvas
   let fxCanvas, fxCtx, fxW, fxH;
@@ -63,7 +63,7 @@
   }
 
   // -------------------------
-  // NO button random positioning (default behavior)
+  // NO button dodge (keep visible, never disappears)
   // -------------------------
   function positionNoRandom() {
     if (!noBtn) return;
@@ -79,7 +79,7 @@
     const x = rand(pad, maxX);
     const y = rand(pad, maxY);
 
-    // IMPORTANT: keep it visible (fixed within viewport)
+    // Important: fixed inside viewport
     noBtn.style.position = "fixed";
     noBtn.style.left = `${x}px`;
     noBtn.style.top = `${y}px`;
@@ -94,34 +94,20 @@
     noBound = true;
 
     const dodge = (ev) => {
-      // Move instantly on tap attempt
+      // move first so click is hard
       positionNoRandom();
       if (navigator.vibrate) navigator.vibrate(18);
 
+      // stop event so Blazor OnNo won't fire most of the time
       ev.preventDefault();
       ev.stopPropagation();
       return false;
     };
 
-    // Mobile-first
     noBtn.addEventListener("pointerdown", dodge, { passive: false });
     noBtn.addEventListener("touchstart", dodge, { passive: false });
 
-    // If click fires anyway, still move (avoid double-trigger)
-    noBtn.addEventListener("click", (ev) => {
-      if (Date.now() - lastMoveTs < 350) {
-        ev.preventDefault();
-        ev.stopPropagation();
-        return;
-      }
-      // still let Blazor set message? -> NO: αν αφήσουμε click, θα τρέξει OnNo.
-      // Θέλεις default "try again" μήνυμα; άρα αφήνουμε Blazor να τρέξει,
-      // αλλά μετακινούμε το κουμπί πριν.
-      positionNoRandom();
-      // NOTE: δεν κάνουμε preventDefault εδώ για να περάσει το Blazor @onclick.
-    });
-
-    // Desktop: only after first move
+    // Desktop: if mouse enters AFTER it has moved once
     noBtn.addEventListener("mouseenter", () => {
       if (hasMovedOnce) positionNoRandom();
     });
@@ -231,11 +217,8 @@
     else running = false;
   }
 
-  // Public: called from Blazor ONLY on YES
+  // Public: called by Blazor from OnYes (ONLY YES)
   window.startCelebration = function () {
-    // Hide bottom UI so GIF can be seen cleanly above everything
-    document.body.classList.add("yes-mode");
-
     setupFxCanvas();
     if (!fxCanvas) return;
 
@@ -254,19 +237,16 @@
     requestAnimationFrame(tick);
   };
 
-  // Public init called from Blazor after render
+  // Public: called by Blazor after first render
   window.valentineSetup = function () {
     bindBgOnce();
     setupFxCanvas();
 
-    // IMPORTANT: ids are "noBtn" in your Razor
-    // (NO "btnNo", NO "btnYes")
+    // Your Razor id is "noBtn"
     noBtn = document.getElementById("noBtn");
-
-    // Bind NO movement
     bindNoOnce();
 
-    // Safety: sometimes Blazor re-renders, try again a few times
+    // Retry in case Blazor renders a bit later
     let tries = 12;
     const timer = setInterval(() => {
       noBtn = document.getElementById("noBtn");
