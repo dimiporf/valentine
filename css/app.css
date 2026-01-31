@@ -124,8 +124,7 @@ h1 {
   opacity: 0.95;
 }
 
-/* ---------- Meme overlay: centered modal ---------- */
-/* Μέχρι να γίνει show, να μην πιάνει χώρο */
+/* ---------- Meme overlay: centered but slightly higher (Mi 10T Pro friendly) ---------- */
 .meme { display: none; }
 
 .meme.show {
@@ -133,22 +132,35 @@ h1 {
   position: fixed;
   inset: 0;
   z-index: 30;
+
+  /* αντί για dead-center, το πάμε πιο πάνω */
   align-items: center;
   justify-content: center;
-  padding: calc(16px + var(--safe-top)) calc(16px + var(--safe-right))
-           calc(16px + var(--safe-bottom)) calc(16px + var(--safe-left));
+
+  /* λιγότερο padding από πάνω, λίγο παραπάνω από κάτω */
+  padding: calc(10px + var(--safe-top)) calc(16px + var(--safe-right))
+           calc(24px + var(--safe-bottom)) calc(16px + var(--safe-left));
+
   background: rgba(0,0,0,0.55);
+
+  /* ⬆️ σηκώνει το περιεχόμενο λίγο πιο πάνω */
+  transform: translateY(-8vh);
 }
 
 .meme.show img {
   width: min(420px, 88vw);
-  max-height: min(520px, 70vh);
+
+  /* λίγο πιο “σφιχτό” για να μη σπρώχνεται προς τα κάτω */
+  max-height: min(520px, 62vh);
+
   height: auto;
   object-fit: contain;
+
   border-radius: 18px;
   display: block;
   box-shadow: 0 18px 45px rgba(0,0,0,0.45);
 }
+
 
 /* FX canvas */
 .fx-canvas {
