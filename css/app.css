@@ -203,5 +203,5 @@ h1 {
 
 
 /* Also ensure panel is above */
-.panel { position: relative; z-index: 6; margin-bottom: 0; }
+.panel { margin-bottom: 0; }
 
