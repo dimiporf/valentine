@@ -36,7 +36,6 @@ body{
   z-index: 0;
 }
 
-/* dark overlay for readability */
 .stage::after{
   content:"";
   position:absolute;
@@ -46,7 +45,7 @@ body{
   z-index: 1;
 }
 
-/* ---------- Bottom panel (ALWAYS visible) ---------- */
+/* ---------- Bottom panel (normal) ---------- */
 .card.bottom{
   position: fixed;
   left: 0;
@@ -54,7 +53,7 @@ body{
   bottom: calc(10px + var(--safe-bottom));
   padding-left: calc(14px + var(--safe-left));
   padding-right: calc(14px + var(--safe-right));
-  z-index: 10; /* πάνω από bg + overlay */
+  z-index: 10;
 }
 
 .panel{
@@ -84,7 +83,6 @@ h1{
 }
 
 .buttons{
-  position: relative;
   display: flex;
   gap: 12px;
   align-items: center;
@@ -106,10 +104,7 @@ h1{
 }
 
 .btn:active{ transform: translateY(1px); }
-
 .btn-yes{ flex: 1 1 auto; }
-
-.no-wrap{ display: block; }
 
 .btn-no{
   background: #ff4d6d;
@@ -117,7 +112,6 @@ h1{
   min-width: 86px;
 }
 
-/* Message */
 .message{
   margin-top: 10px;
   min-height: 20px;
@@ -126,13 +120,14 @@ h1{
   opacity: 0.95;
 }
 
-/* ---------- GIF overlay (from your Razor .meme) ---------- */
-/* default hidden */
-.meme{ display:none; }
+/* ---------- IMPORTANT ----------
+   ΜΗΝ βασίζεσαι στο Razor .meme να “κάτσει” σωστά.
+   Το JS θα κάνει overlay στο body. Εδώ το κρατάμε κρυφό. */
+.meme{ display:none !important; }
 
-/* shown on YES (_showMeme => class "show") */
-.meme.show{
-  display: grid;
+/* ---------- Overlay GIF (created by JS) ---------- */
+#memeOverlay{
+  display: none;
   position: fixed;
   inset: 0;
   z-index: 9999;
@@ -147,21 +142,30 @@ h1{
   background: rgba(0,0,0,0.55);
 }
 
-.meme.show img{
-  width: 70vw;     /* ~30% smaller than viewport */
+#memeOverlay.show{
+  display: grid;
+}
+
+#memeOverlay img{
+  width: 70vw;       /* ~30% μικρότερο από όλη την οθόνη */
   height: 70vh;
   object-fit: contain;
   border-radius: 18px;
-  display:block;
+  display: block;
   box-shadow: 0 18px 45px rgba(0,0,0,0.45);
 }
 
-/* FX canvas */
+/* όταν δείχνει το GIF overlay, κρύψε το κάτω panel */
+body.meme-open .card.bottom{
+  display: none !important;
+}
+
+/* ---------- FX canvas ---------- */
 .fx-canvas{
   position: fixed;
   inset: 0;
   width: 100vw;
   height: 100vh;
   pointer-events: none;
-  z-index: 50; /* κάτω από meme (9999), πάνω από UI */
+  z-index: 50; /* κάτω από το GIF overlay (9999) */
 }
