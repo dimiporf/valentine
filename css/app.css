@@ -196,3 +196,14 @@ h1{
         transform: translateY(0) scale(1);
         opacity: 1;
     }
+
+/* Make NO movable anywhere */
+#btnNo {
+  position: fixed;
+  left: 60%;
+  top: 75%;
+  transform: translate(-50%, -50%);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  z-index: 50;
+}
