@@ -124,36 +124,36 @@ h1 {
   opacity: 0.95;
 }
 
-/* ---------- Meme overlay: centered but slightly higher (Mi 10T Pro friendly) ---------- */
+/* ---------- GIF overlay: centered, ~30px from top, ~30% smaller ---------- */
 .meme { display: none; }
 
 .meme.show {
-  display: flex;
+  display: grid;
   position: fixed;
   inset: 0;
   z-index: 30;
 
-  /* αντί για dead-center, το πάμε πιο πάνω */
-  align-items: center;
-  justify-content: center;
+  /* οριζόντια κέντρο */
+  justify-items: center;
 
-  /* λιγότερο padding από πάνω, λίγο παραπάνω από κάτω */
-  padding: calc(10px + var(--safe-top)) calc(16px + var(--safe-right))
-           calc(24px + var(--safe-bottom)) calc(16px + var(--safe-left));
+  /* 30px από πάνω + safe area */
+  align-content: start;
+  padding-top: calc(30px + var(--safe-top));
+
+  /* λίγο padding γύρω γύρω */
+  padding-left: calc(16px + var(--safe-left));
+  padding-right: calc(16px + var(--safe-right));
+  padding-bottom: calc(16px + var(--safe-bottom));
 
   background: rgba(0,0,0,0.55);
-
-  /* ⬆️ σηκώνει το περιεχόμενο λίγο πιο πάνω */
-  transform: translateY(-8vh);
 }
 
 .meme.show img {
-  width: min(420px, 88vw);
+  /* ~30% μικρότερο από το viewport */
+  width: 70vw;
+  height: 70vh;
 
-  /* λίγο πιο “σφιχτό” για να μη σπρώχνεται προς τα κάτω */
-  max-height: min(520px, 62vh);
-
-  height: auto;
+  /* να κρατάει αναλογία και να μη “τεντώνει” */
   object-fit: contain;
 
   border-radius: 18px;
