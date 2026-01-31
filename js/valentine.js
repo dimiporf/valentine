@@ -46,94 +46,115 @@
   // NO button evasive behavior
   // -------------------------
   let noBtn = null;
-  let yesBtn = null;
-  let lastMoveTs = 0;
+  let noIsFloating = false;
 
-  function positionNoRandom() {
+  function getViewportBounds() {
+    return {
+      w: window.innerWidth,
+      h: window.innerHeight
+    };
+  }
+
+  function floatNoAtCurrentSpot() {
+    if (!noBtn || noIsFloating) return;
+
+    const r = noBtn.getBoundingClientRect();
+
+    // Make it fixed but keep it where it already is
+    noBtn.style.position = 'fixed';
+    noBtn.style.left = `${r.left}px`;
+    noBtn.style.top = `${r.top}px`;
+    noBtn.style.margin = '0';
+    noBtn.style.zIndex = '30'; // above panel
+    noIsFloating = true;
+  }
+
+  function moveNoRandom() {
     if (!noBtn) return;
+
+    // Ensure fixed
+    floatNoAtCurrentSpot();
 
     const pad = 10;
     const rect = noBtn.getBoundingClientRect();
     const bw = rect.width || 90;
     const bh = rect.height || 44;
 
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
+    const vp = getViewportBounds();
 
-    const maxX = Math.max(pad, vw - bw - pad);
-    const maxY = Math.max(pad, vh - bh - pad);
+    const maxX = Math.max(pad, vp.w - bw - pad);
+    const maxY = Math.max(pad, vp.h - bh - pad);
 
     const x = rand(pad, maxX);
     const y = rand(pad, maxY);
 
     noBtn.style.left = `${x}px`;
     noBtn.style.top = `${y}px`;
-
-    lastMoveTs = Date.now();
-  }
-
-  function ensureNoStartsNearYes() {
-    if (!noBtn) return;
-
-    // Spawn near YES initially (then runs away)
-    if (yesBtn) {
-      const r = yesBtn.getBoundingClientRect();
-      const x = clamp(r.right + 14, 10, window.innerWidth - 120);
-      const y = clamp(r.top, 10, window.innerHeight - 80);
-      noBtn.style.left = `${x}px`;
-      noBtn.style.top = `${y}px`;
-    } else {
-      noBtn.style.left = `65%`;
-      noBtn.style.top = `70%`;
-    }
   }
 
   function setupNoButton() {
-    noBtn = document.getElementById('noBtn');     // matches Razor
-    yesBtn = document.querySelector('.btn-yes');  // YES button
+    noBtn = document.getElementById('noBtn');
     if (!noBtn) return;
 
-    ensureNoStartsNearYes();
+    // Reset any previous state (in case of hot reload / rerender)
+    noBtn.style.position = '';
+    noBtn.style.left = '';
+    noBtn.style.top = '';
+    noBtn.style.zIndex = '';
+    noIsFloating = false;
 
     const dodge = (ev) => {
+      // Prevent Blazor click from firing (most of the time)
       ev.preventDefault();
       ev.stopPropagation();
-      positionNoRandom();
+
+      moveNoRandom();
       if (navigator.vibrate) navigator.vibrate(18);
       return false;
     };
 
-    // Make it dodge BEFORE Blazor click registers
+    // Mobile: dodge on press
     noBtn.addEventListener('pointerdown', dodge, { passive: false });
     noBtn.addEventListener('touchstart', dodge, { passive: false });
 
-    // If a click still happens, ignore it when it immediately follows movement
-    noBtn.addEventListener('click', (ev) => {
-      if (Date.now() - lastMoveTs < 350) {
-        ev.preventDefault();
-        ev.stopPropagation();
-        return false;
-      }
-      // If it truly got clicked, still run away
-      ev.preventDefault();
-      ev.stopPropagation();
-      positionNoRandom();
-      return false;
-    }, { passive: false });
-
-    // Desktop: run away if pointer comes close
+    // Desktop: if mouse gets close, run away
     document.addEventListener('pointermove', (e) => {
       if (!noBtn) return;
+      if (document.body.classList.contains('accepted')) return;
+
       const r = noBtn.getBoundingClientRect();
       const cx = r.left + r.width / 2;
       const cy = r.top + r.height / 2;
       const dx = e.clientX - cx;
       const dy = e.clientY - cy;
       const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist < 90) positionNoRandom();
+
+      if (dist < 90) moveNoRandom();
     }, { passive: true });
 
-    window.addEventListener('resize', () => positionNoRandom(), { passive: true });
+    window.addEventListener('resize', () => {
+      if (!noBtn) return;
+      if (document.body.classList.contains('accepted')) return;
+      if (noIsFloating) moveNoRandom();
+    }, { passive: true });
+  }
+
+  // -------------------------
+  // Detect YES (via DOM change) and switch to fullscreen gif mode
+  // -------------------------
+  function setupAcceptedWatcher() {
+    const meme = document.querySelector('.meme');
+    if (!meme) return;
+
+    const apply = () => {
+      const isShown = meme.classList.contains('show');
+      if (isShown) document.body.classList.add('accepted');
+    };
+
+    apply();
+
+    const obs = new MutationObserver(() => apply());
+    obs.observe(meme, { attributes: true, attributeFilter: ['class'] });
   }
 
   // -------------------------
@@ -219,7 +240,6 @@
       p.rot += p.vr * dt;
 
       p.alpha = clamp(p.life / 1.0, 0, 1);
-
       const c = palette[i % palette.length];
       fxCtx.fillStyle = `rgba(${c[0]},${c[1]},${c[2]},${p.alpha})`;
 
@@ -239,12 +259,7 @@
     else running = false;
   }
 
-  // Called from Razor: JS.InvokeVoidAsync("startCelebration")
   window.startCelebration = function () {
-    // Hide the whole bottom card so GIF can take over fullscreen
-    const card = document.querySelector('.card.bottom');
-    if (card) card.style.display = 'none';
-
     if (!fxCanvas) setupFxCanvas();
     if (!fxCanvas) return;
 
@@ -270,9 +285,10 @@
     }, 520);
   };
 
-  // Called from Razor first render: JS.InvokeVoidAsync("valentineSetup")
+  // Blazor calls this on first render
   window.valentineSetup = function () {
     setupNoButton();
     setupFxCanvas();
+    setupAcceptedWatcher();
   };
 })();
