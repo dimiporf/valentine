@@ -18,10 +18,12 @@ body {
   touch-action: manipulation;
 }
 
+/* Stage is the full-screen container */
 .stage {
   position: fixed;
   inset: 0;
   overflow: hidden;
+  z-index: 0;
 }
 
 /* Background photo */
@@ -35,30 +37,38 @@ body {
   filter: brightness(0.7) saturate(1.05);
   transform: translate3d(0,0,0) scale(1.06);
   will-change: transform;
+  z-index: 0;
 }
 
-/* dark overlay for readability */
+/* Overlay ABOVE bg but BELOW UI */
 .stage::after {
   content: "";
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse at center, rgba(0,0,0,0.18), rgba(0,0,0,0.55));
+  z-index: 1;
   pointer-events: none;
+  background: radial-gradient(ellipse at center, rgba(0,0,0,0.18), rgba(0,0,0,0.55));
 }
 
 /* Bottom card */
 .card.bottom {
-  position: absolute;
+  position: fixed;
   left: 0;
   right: 0;
+
+  /* ✅ ΤΕΡΜΑ ΚΑΤΩ: πατάει στο safe-area (όχι +12px που το σηκώνει) */
   bottom: 0;
+
+  /* ✅ safe-area padding μέσα στο container */
   padding-left: calc(16px + var(--safe-left));
   padding-right: calc(16px + var(--safe-right));
-  padding-bottom: calc(18px + var(--safe-bottom));
+  padding-bottom: calc(14px + var(--safe-bottom));
   padding-top: 14px;
-  z-index: 2;
+
+  z-index: 5;
 }
 
+/* The translucent panel */
 .panel {
   max-width: 520px;
   margin: 0 auto;
@@ -69,6 +79,8 @@ body {
   -webkit-backdrop-filter: blur(10px);
   box-shadow: 0 18px 40px rgba(0,0,0,0.35);
   color: rgba(255,255,255,0.95);
+  position: relative;
+  z-index: 6;
 }
 
 h1 {
@@ -91,7 +103,7 @@ h1 {
   align-items: center;
 }
 
-/* YES is normal button in the row */
+/* Buttons */
 .btn {
   appearance: none;
   border: none;
@@ -115,12 +127,10 @@ h1 {
   flex: 1 1 auto;
 }
 
-/* keep wrapper but make it non-blocking */
 .no-wrap {
   display: contents; /* wrapper won't affect positioning */
 }
 
-/* NO will be positioned by JS as fixed and moved anywhere */
 .btn-no {
   background: #ff4d6d;
   color: #fff;
@@ -165,43 +175,3 @@ h1 {
   pointer-events: none;
   z-index: 10;
 }
-
-/* Force proper stacking order */
-.stage { position: fixed; inset: 0; overflow: hidden; z-index: 0; }
-
-/* Background stays behind everything */
-.bg {
-  position: absolute;
-  inset: -30px;
-  z-index: 0;              /* <-- add */
-}
-
-/* Overlay ABOVE bg but BELOW UI */
-.stage::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 1;              /* <-- add */
-  pointer-events: none;
-  background: radial-gradient(ellipse at center, rgba(0,0,0,0.18), rgba(0,0,0,0.55));
-}
-
-.card.bottom {
-  position: fixed;
-  left: 0;
-  right: 0;
-
-  /* ⬇️ ΚΑΘΕΤΑΙ ΧΑΜΗΛΑ, ΟΧΙ ΠΑΝΩ ΣΤΗΝ ΕΙΚΟΝΑ */
-  bottom: calc(12px + var(--safe-bottom));
-
-  padding-left: calc(16px + var(--safe-left));
-  padding-right: calc(16px + var(--safe-right));
-  padding-bottom: 0;
-
-  z-index: 5;
-}
-
-
-/* Also ensure panel is above */
-.panel { margin-bottom: 0; }
-
