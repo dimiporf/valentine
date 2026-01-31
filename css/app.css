@@ -1,4 +1,4 @@
-:root {
+:root{
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
@@ -49,15 +49,15 @@ body {
   z-index: 1;
 }
 
-/* ---------- Bottom card (buttons stay down) ---------- */
+/* ---------- Bottom card (UI) ---------- */
 .card.bottom {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: calc(10px + var(--safe-bottom));
+  bottom: calc(12px + var(--safe-bottom));
   padding-left: calc(14px + var(--safe-left));
   padding-right: calc(14px + var(--safe-right));
-  z-index: 5;
+  z-index: 10; /* πάνω από bg/overlay */
 }
 
 .panel {
@@ -112,6 +112,8 @@ h1 {
 
 .btn-yes { flex: 1 1 auto; }
 
+.no-wrap { display: block; }
+
 .btn-no {
   background: #ff4d6d;
   color: #fff;
@@ -127,48 +129,49 @@ h1 {
   opacity: 0.95;
 }
 
-/* ---------- Meme from Razor: hidden until .show ---------- */
+/* ---------- GIF overlay ---------- */
+/* default: hidden */
 .meme { display: none; }
 
-/* When YES is pressed, Razor adds class "show" */
+/* when Blazor adds "show" => overlay ON TOP */
 .meme.show {
-  display: grid;
+  display: flex;
   position: fixed;
   inset: 0;
   z-index: 9999;
+  justify-content: center;
+  align-items: flex-start;
 
-  justify-items: center;
-  align-content: start;
-
-  /* 30px from top */
+  /* 30px από πάνω + safe area */
   padding-top: calc(30px + var(--safe-top));
   padding-left: calc(16px + var(--safe-left));
   padding-right: calc(16px + var(--safe-right));
   padding-bottom: calc(16px + var(--safe-bottom));
 
   background: rgba(0,0,0,0.55);
+  box-sizing: border-box;
 }
 
 .meme.show img {
-  width: 70vw;          /* ~30% smaller than full screen */
-  height: 70vh;
+  width: min(70vw, 520px);
+  height: min(70vh, calc(100vh - (30px + var(--safe-top) + 32px)));
   object-fit: contain;
   border-radius: 18px;
   display: block;
   box-shadow: 0 18px 45px rgba(0,0,0,0.45);
 }
 
-/* Hide the bottom card once GIF is visible (no :has needed) */
-body.meme-open .card.bottom {
+/* Όταν φαίνεται το meme, κρύψε εντελώς το κάτω panel */
+body.meme-on .card.bottom {
   display: none !important;
 }
 
-/* FX canvas (if you still keep it) */
+/* FX canvas */
 .fx-canvas {
   position: fixed;
   inset: 0;
   width: 100vw;
   height: 100vh;
   pointer-events: none;
-  z-index: 20;
+  z-index: 20; /* κάτω από meme (9999), πάνω από bg */
 }
