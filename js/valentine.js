@@ -1,153 +1,288 @@
-:root{
-  --safe-top: env(safe-area-inset-top, 0px);
-  --safe-bottom: env(safe-area-inset-bottom, 0px);
-  --safe-left: env(safe-area-inset-left, 0px);
-  --safe-right: env(safe-area-inset-right, 0px);
-}
+(function () {
+  // Helpers
+  function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+  function rand(min, max) { return Math.random() * (max - min) + min; }
 
-html,body{height:100%;margin:0}
-body{
-  overflow:hidden;
-  font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-  background:#000;
-  -webkit-tap-highlight-color:transparent;
-  touch-action:manipulation;
-}
+  // -------------------------
+  // Background gentle movement
+  // -------------------------
+  let bgEl = null;
+  let mx = 0, my = 0;   // target -1..1
+  let vx = 0, vy = 0;   // smoothed
 
-.stage{position:fixed;inset:0;overflow:hidden;z-index:0}
+  function setBgTargetFromEvent(ev) {
+    const t = (ev.touches && ev.touches.length) ? ev.touches[0] : ev;
+    const x = t.clientX / window.innerWidth;
+    const y = t.clientY / window.innerHeight;
+    mx = (x - 0.5) * 2;
+    my = (y - 0.5) * 2;
+  }
 
-/* background */
-.bg{
-  position:absolute;
-  inset:-30px;
-  background-image:url("../img/bg.jpg");
-  background-size:cover;
-  background-position:center;
-  background-repeat:no-repeat;
-  filter:brightness(.7) saturate(1.05);
-  transform:translate3d(0,0,0) scale(1.06);
-  will-change:transform;
-  z-index:0;
-}
+  function animateBg() {
+    if (!bgEl) bgEl = document.querySelector('.bg');
+    if (bgEl) {
+      vx += (mx - vx) * 0.04;
+      vy += (my - vy) * 0.04;
+      const tx = vx * 14;
+      const ty = vy * 14;
+      bgEl.style.transform = `translate3d(${tx}px, ${ty}px, 0) scale(1.06)`;
+    }
+    requestAnimationFrame(animateBg);
+  }
 
-/* overlay */
-.stage::after{
-  content:"";
-  position:absolute;
-  inset:0;
-  z-index:1;
-  pointer-events:none;
-  background:radial-gradient(ellipse at center, rgba(0,0,0,.18), rgba(0,0,0,.55));
-}
+  window.addEventListener('mousemove', setBgTargetFromEvent, { passive: true });
+  window.addEventListener('touchmove', setBgTargetFromEvent, { passive: true });
+  window.addEventListener('deviceorientation', function (ev) {
+    if (typeof ev.gamma === 'number' && typeof ev.beta === 'number') {
+      mx = clamp(ev.gamma / 20, -1, 1);
+      my = clamp(ev.beta / 35, -1, 1);
+    }
+  }, true);
 
-/* ----- UI LAYOUT (no transitions) ----- */
+  requestAnimationFrame(animateBg);
 
-/* Το card το κάνουμε "container" που πιάνει όλη την οθόνη,
-   αλλά τα κουμπιά θα είναι fixed κάτω σαν bottom bar */
-.card.bottom{
-  position:fixed;
-  inset:0;
-  z-index:5;
-  pointer-events:none; /* να μην πιάνει clicks εκτός από όσα θα ξανα-ενεργοποιήσουμε */
-}
+  // -------------------------
+  // NO button evasive behavior
+  // -------------------------
+  let noBtn = null;
+  let yesBtn = null;
+  let buttonsBar = null;
 
-/* Panel: δεν θέλουμε να μας μετακινεί τίποτα.
-   Θα κρύβεται όταν γίνει YES. */
-.panel{
-  position:absolute;
-  inset:0;
-  pointer-events:none; /* ενεργοποιούμε επιλεκτικά buttons */
-  color:rgba(255,255,255,.95);
-}
+  function getSafeAreaBottomPx() {
+    // env() δεν διαβάζεται εύκολα από JS. Κάνουμε best-effort.
+    return 0;
+  }
 
-/* Κρατάμε title/subtitle/message "να υπάρχουν" αλλά δεν μας νοιάζει να φαίνονται.
-   Αν θες, μπορείς να τα κρύψεις εντελώς: */
-.panel h1,
-.panel .subtitle,
-.panel .message{
-  display:none;
-}
+  function positionNoRandom() {
+    if (!noBtn) return;
 
-/* Buttons bar κολλημένο κάτω */
-.buttons{
-  position:fixed;
-  left:0;
-  right:0;
-  bottom:0;
-  padding-left:calc(16px + var(--safe-left));
-  padding-right:calc(16px + var(--safe-right));
-  padding-bottom:calc(14px + var(--safe-bottom));
-  padding-top:12px;
+    const pad = 10;
+    const rect = noBtn.getBoundingClientRect();
+    const bw = rect.width || 90;
+    const bh = rect.height || 44;
 
-  display:flex;
-  gap:12px;
-  align-items:center;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
 
-  z-index:7;
-  pointer-events:auto; /* να πατιούνται */
-}
+    // Απόφυγε να πέσει ΠΑΝΩ στο bottom bar αν θες:
+    const barRect = buttonsBar ? buttonsBar.getBoundingClientRect() : null;
+    const barTop = barRect ? barRect.top : vh;
 
-/* Buttons styles */
-.btn{
-  appearance:none;
-  border:none;
-  border-radius:999px;
-  padding:14px 18px;
-  font-size:16px;
-  font-weight:800;
-  letter-spacing:.4px;
-  color:#111;
-  background:#fff;
-  box-shadow:0 10px 22px rgba(0,0,0,.25);
-  cursor:pointer;
-  user-select:none;
-}
+    const maxX = Math.max(pad, vw - bw - pad);
+    const maxY = Math.max(pad, barTop - bh - pad); // ⬅️ μένει πάνω από το bar
 
-.btn-yes{flex:1 1 auto}
+    const x = rand(pad, maxX);
+    const y = rand(pad, maxY);
 
-.no-wrap{display:contents}
+    noBtn.style.left = `${x}px`;
+    noBtn.style.top = `${y}px`;
+  }
 
-.btn-no{
-  background:#ff4d6d;
-  color:#fff;
-}
+  function makeNoFloating() {
+    if (!noBtn) return;
+    noBtn.classList.add('is-floating');
 
-/* Το NO θα γίνεται fixed και θα φεύγει random */
-.btn-no.is-floating{
-  position:fixed;
-  z-index:9999;
-}
+    // ξεκίνα κοντά στο YES (δεξιά)
+    if (yesBtn) {
+      const r = yesBtn.getBoundingClientRect();
+      const startX = clamp(r.right - (noBtn.offsetWidth || 90), 10, window.innerWidth - 120);
+      const startY = clamp(r.top - 8, 10, window.innerHeight - 120);
+      noBtn.style.left = `${startX}px`;
+      noBtn.style.top = `${startY}px`;
+    } else {
+      noBtn.style.left = `60vw`;
+      noBtn.style.top = `70vh`;
+    }
+  }
 
-/* Meme: full-screen overlay, αρχικά κρυφό */
-.meme{
-  position:fixed;
-  inset:0;
-  z-index:9998;
-  display:none;        /* ⬅️ χωρίς transitions */
-  pointer-events:none; /* δεν θέλουμε clicks πάνω του */
-  margin:0;
-  padding:0;
-}
+  function setupNoButton() {
+    noBtn = document.getElementById('noBtn');
+    yesBtn = document.querySelector('.btn-yes');
+    buttonsBar = document.getElementById('btnArena');
 
-.meme.show{
-  display:block;
-}
+    if (!noBtn) return;
 
-.meme img{
-  width:100vw;
-  height:100vh;
-  object-fit:cover;
-  display:block;
-  border-radius:0;
-  box-shadow:none;
-}
+    // Βασικό: το NO να μπορεί να φύγει από το bar
+    makeNoFloating();
 
-/* FX canvas πάνω απ’ όλα */
-.fx-canvas{
-  position:fixed;
-  inset:0;
-  width:100vw;
-  height:100vh;
-  pointer-events:none;
-  z-index:10000;
-}
+    const dodge = (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      positionNoRandom();
+      if (navigator.vibrate) navigator.vibrate(18);
+      return false;
+    };
+
+    noBtn.addEventListener('pointerdown', dodge, { passive: false });
+    noBtn.addEventListener('touchstart', dodge, { passive: false });
+
+    // Αν το ποντίκι/δάχτυλο πλησιάσει, φεύγει
+    document.addEventListener('pointermove', (e) => {
+      if (!noBtn) return;
+      const r = noBtn.getBoundingClientRect();
+      const cx = r.left + r.width / 2;
+      const cy = r.top + r.height / 2;
+      const dx = e.clientX - cx;
+      const dy = e.clientY - cy;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < 90) positionNoRandom();
+    }, { passive: true });
+
+    window.addEventListener('resize', () => positionNoRandom(), { passive: true });
+  }
+
+  // -------------------------
+  // Celebration FX (canvas)
+  // -------------------------
+  let fxCanvas, fxCtx, fxW, fxH;
+  let particles = [];
+  let running = false;
+  let lastT = 0;
+
+  function setupFxCanvas() {
+    fxCanvas = document.getElementById('fx');
+    if (!fxCanvas) return;
+    fxCtx = fxCanvas.getContext('2d');
+    resizeFx();
+    window.addEventListener('resize', resizeFx, { passive: true });
+  }
+
+  function resizeFx() {
+    if (!fxCanvas) return;
+    fxW = fxCanvas.width = Math.floor(window.innerWidth * devicePixelRatio);
+    fxH = fxCanvas.height = Math.floor(window.innerHeight * devicePixelRatio);
+  }
+
+  function addBurst(cx, cy, count, speed, gravity, shape) {
+    for (let i = 0; i < count; i++) {
+      const a = rand(0, Math.PI * 2);
+      const s = speed * rand(0.55, 1.15);
+      particles.push({
+        x: cx * devicePixelRatio,
+        y: cy * devicePixelRatio,
+        vx: Math.cos(a) * s,
+        vy: Math.sin(a) * s,
+        life: rand(0.8, 1.6),
+        gravity,
+        shape,
+        rot: rand(0, Math.PI * 2),
+        vr: rand(-3, 3),
+        size: rand(7, 14) * devicePixelRatio,
+        alpha: 1
+      });
+    }
+  }
+
+  function drawHeart(ctx, x, y, s, rot, alpha) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rot);
+    ctx.globalAlpha = alpha;
+    ctx.scale(s, s);
+    ctx.beginPath();
+    ctx.moveTo(0, -0.35);
+    ctx.bezierCurveTo(0.5, -0.85, 1.2, -0.05, 0, 0.9);
+    ctx.bezierCurveTo(-1.2, -0.05, -0.5, -0.85, 0, -0.35);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function tick(t) {
+    if (!running) return;
+    const dt = Math.min(0.033, (t - lastT) / 1000 || 0.016);
+    lastT = t;
+
+    fxCtx.clearRect(0, 0, fxW, fxH);
+
+    const palette = [
+      [255, 59, 92],
+      [255, 210, 0],
+      [120, 90, 255],
+      [62, 255, 165],
+      [255, 140, 210]
+    ];
+
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.life -= dt;
+      if (p.life <= 0) { particles.splice(i, 1); continue; }
+
+      p.vy += p.gravity * dt;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.rot += p.vr * dt;
+
+      p.alpha = clamp(p.life / 1.0, 0, 1);
+
+      const c = palette[i % palette.length];
+      fxCtx.fillStyle = `rgba(${c[0]},${c[1]},${c[2]},${p.alpha})`;
+
+      if (p.shape === 'heart') {
+        drawHeart(fxCtx, p.x, p.y, p.size / 18, p.rot, p.alpha);
+      } else {
+        fxCtx.save();
+        fxCtx.translate(p.x, p.y);
+        fxCtx.rotate(p.rot);
+        fxCtx.globalAlpha = p.alpha;
+        fxCtx.fillRect(-p.size * 0.25, -p.size * 0.25, p.size * 0.5, p.size * 0.5);
+        fxCtx.restore();
+      }
+    }
+
+    if (particles.length > 0) requestAnimationFrame(tick);
+    else running = false;
+  }
+
+  // -------------------------
+  // YES behavior: hide UI, full-screen gif
+  // -------------------------
+  function hideButtonsBar() {
+    const bar = document.getElementById('btnArena');
+    if (bar) bar.style.display = 'none';
+  }
+
+  function forceMemeFullscreen() {
+    const meme = document.querySelector('.meme');
+    if (meme) meme.classList.add('show');
+  }
+
+  window.startCelebration = function () {
+    // 1) Κρύψε τα κουμπιά αμέσως
+    hideButtonsBar();
+
+    // 2) Fullscreen gif overlay
+    forceMemeFullscreen();
+
+    // 3) FX
+    if (!fxCanvas) setupFxCanvas();
+    if (!fxCanvas) return;
+
+    const cx = window.innerWidth * 0.5;
+    const cy = window.innerHeight * 0.42;
+
+    for (let k = 0; k < 7; k++) {
+      addBurst(rand(cx * 0.35, cx * 1.65), rand(cy * 0.65, cy * 1.25), 28, 700, 900, 'square');
+    }
+    for (let k = 0; k < 6; k++) {
+      addBurst(rand(cx * 0.3, cx * 1.7), rand(cy * 0.4, cy * 1.2), 18, 520, 600, 'heart');
+    }
+
+    running = true;
+    lastT = performance.now();
+    requestAnimationFrame(tick);
+
+    setTimeout(() => {
+      for (let k = 0; k < 4; k++) {
+        addBurst(rand(cx * 0.4, cx * 1.6), rand(cy * 0.55, cy * 1.15), 22, 650, 900, 'square');
+      }
+      if (!running) { running = true; lastT = performance.now(); requestAnimationFrame(tick); }
+    }, 520);
+  };
+
+  // Blazor calls this on first render
+  window.valentineSetup = function () {
+    setupNoButton();
+    setupFxCanvas();
+  };
+})();
